@@ -40,6 +40,17 @@ function detNoise(plantId, hour, salt) {
   return x * 0.5
 }
 
+/** Deterministic uniform integer in [0, max] inclusive */
+function detRandInt(plantId, hour, salt, max) {
+  let h = salt * 12.9898
+  for (let i = 0; i < plantId.length; i++) {
+    h += plantId.charCodeAt(i) * (i + 3.17)
+  }
+  const u = Math.abs(Math.sin(h + hour * 78.233) * 43758.5453)
+  const frac = u - Math.floor(u)
+  return Math.min(max, Math.floor(frac * (max + 1)))
+}
+
 function solarP50(hour, capacityMw) {
   const dayCurve = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI))
   return Math.min(capacityMw, capacityMw * 0.92 * dayCurve + capacityMw * 0.02)
@@ -56,25 +67,30 @@ function windP50(plantId, hour, capacityMw) {
 }
 
 /**
+ * Day-ahead: P10 = P50 - 25 - random(0..8), P90 = P50 + 25 + random(0..8), clamp >= 0.
+ * Intraday: P10 = P50 - 10 - random(0..5), P90 = P50 + 10 + random(0..5).
  * @param {string} plantId
- * @param {{ halfWidth: number, stressMultiplier?: number }} bandOpts
+ * @param {{ mode: 'dayahead' | 'intraday', stressMultiplier?: number }} opts
  */
-function buildSeries(plantId, bandOpts) {
+function buildSeries(plantId, opts) {
   const { capacityMw, type } = plantMeta(plantId)
-  const stress = bandOpts.stressMultiplier ?? 1
-  const half = bandOpts.halfWidth * stress
+  const stress = opts.stressMultiplier ?? 1
+  const baseHalf = opts.mode === 'intraday' ? 10 : 25
+  const randMax = opts.mode === 'intraday' ? 5 : 8
 
   const p50 = HOURS.map((h) =>
     type === 'solar' ? solarP50(h, capacityMw) : windP50(plantId, h, capacityMw)
   )
 
   const p10 = HOURS.map((h, i) => {
-    const n = detNoise(plantId, h, 2) * 1.2
-    return Math.max(0, p50[i] - half + n)
+    const r = detRandInt(plantId, h, 11, randMax)
+    const low = baseHalf * stress + r
+    return Math.max(0, p50[i] - low)
   })
   const p90 = HOURS.map((h, i) => {
-    const n = detNoise(plantId, h, 4) * 1.2
-    return Math.max(0, p50[i] + half + n)
+    const r = detRandInt(plantId, h, 19, randMax)
+    const high = baseHalf * stress + r
+    return Math.max(0, p50[i] + high)
   })
 
   return {
@@ -94,13 +110,13 @@ function scenarioStressMultiplier(scenario) {
 
 export function mockForecast(plantId, scenario = 'Normal Day') {
   return buildSeries(plantId, {
-    halfWidth: 15,
+    mode: 'dayahead',
     stressMultiplier: scenarioStressMultiplier(scenario),
   })
 }
 
 export function mockIntradayForecast(plantId) {
-  return buildSeries(plantId, { halfWidth: 10 })
+  return buildSeries(plantId, { mode: 'intraday', stressMultiplier: 1 })
 }
 
 export function mockAlerts() {
@@ -168,15 +184,33 @@ export function formatMw(value) {
  * @param {number} hoursOfActuals
  * @param {string} [scenario]
  */
+function tryMockForecast(plantId, scenario) {
+  try {
+    return { data: mockForecast(plantId, scenario), mockError: null }
+  } catch (e) {
+    return { data: null, mockError: e }
+  }
+}
+
+function tryMockIntraday(plantId) {
+  try {
+    return { data: mockIntradayForecast(plantId), mockError: null }
+  } catch (e) {
+    return { data: null, mockError: e }
+  }
+}
+
 export async function fetchForecast(plantId, hoursOfActuals = 0, scenario = 'Normal Day') {
   try {
     const { data } = await client.post('/api/forecast/', {
       plant_id: plantId,
       hours_of_actuals: hoursOfActuals,
     })
-    return { data, usedMock: false, error: null }
+    return { data, usedFallback: false, error: null }
   } catch (error) {
-    return { data: mockForecast(plantId, scenario), usedMock: true, error }
+    const { data, mockError } = tryMockForecast(plantId, scenario)
+    if (data) return { data, usedFallback: true, error }
+    return { data: null, usedFallback: true, error: mockError || error }
   }
 }
 
@@ -190,9 +224,11 @@ export async function fetchIntradayForecast(plantId, actuals) {
       plant_id: plantId,
       actuals,
     })
-    return { data, usedMock: false, error: null }
+    return { data, usedFallback: false, error: null }
   } catch (error) {
-    return { data: mockIntradayForecast(plantId), usedMock: true, error }
+    const { data, mockError } = tryMockIntraday(plantId)
+    if (data) return { data, usedFallback: true, error }
+    return { data: null, usedFallback: true, error: mockError || error }
   }
 }
 
@@ -201,6 +237,14 @@ export async function fetchIntradayForecast(plantId, actuals) {
  * @param {number[]} p50
  * @param {number[]} hours
  */
+function tryMockAlerts() {
+  try {
+    return { data: mockAlerts(), mockError: null }
+  } catch (e) {
+    return { data: null, mockError: e }
+  }
+}
+
 export async function fetchAlerts(plantId, p50, hours) {
   try {
     const { data } = await client.post('/api/alerts/', {
@@ -208,18 +252,30 @@ export async function fetchAlerts(plantId, p50, hours) {
       p50,
       hours,
     })
-    return { data, usedMock: false, error: null }
+    return { data, usedFallback: false, error: null }
   } catch (error) {
-    return { data: mockAlerts(), usedMock: true, error }
+    const { data, mockError } = tryMockAlerts()
+    if (data) return { data, usedFallback: true, error }
+    return { data: null, usedFallback: true, error: mockError || error }
+  }
+}
+
+function tryMockReconciled() {
+  try {
+    return { data: mockReconciled(), mockError: null }
+  } catch (e) {
+    return { data: null, mockError: e }
   }
 }
 
 export async function fetchReconciled() {
   try {
     const { data } = await client.get('/api/reconciled/')
-    return { data, usedMock: false, error: null }
+    return { data, usedFallback: false, error: null }
   } catch (error) {
-    return { data: mockReconciled(), usedMock: true, error }
+    const { data, mockError } = tryMockReconciled()
+    if (data) return { data, usedFallback: true, error }
+    return { data: null, usedFallback: true, error: mockError || error }
   }
 }
 
