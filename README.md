@@ -44,3 +44,13 @@ Person 5 — Backend API & Frontend: backend/src/ + frontend/
 
 FastAPI auto-generates docs at http://localhost:8000/docs
 Test all endpoints interactively there.
+
+## Deployment
+
+Production deployment uses HTTPS with TLS termination at the nginx reverse proxy layer — all traffic between the dashboard and the forecasting API is encrypted in transit.
+
+### Security (backend)
+
+- Set `API_KEY` in the backend environment (see `backend/.env.example`). The frontend must send the same value in `X-API-Key` (see `frontend/.env.example` / `VITE_API_KEY`).
+- Request audit trail: `backend/logs/api_access.log` (created at runtime).
+- Rate limits: forecasting and alert POST routes default to 30 requests/minute per client IP; evaluation and reconciled GET routes to 60/minute.
