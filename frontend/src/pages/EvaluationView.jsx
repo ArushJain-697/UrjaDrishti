@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
 import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 function fmtMetric(x) {
   if (x == null || !Number.isFinite(Number(x))) return '—'
@@ -20,6 +21,7 @@ function improvementColor(pct) {
 }
 
 export default function EvaluationView() {
+  const { t } = useLanguage()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [usedFallback, setUsedFallback] = useState(false)
@@ -55,28 +57,28 @@ export default function EvaluationView() {
 
   const rows = [
     {
-      name: 'Persistence',
+      name: t('persistence'),
       key: 'persistence',
       rowClass: 'text-[#ef4444]',
       headerBadge: null,
     },
     {
-      name: 'Climatological Mean',
+      name: t('climatological'),
       key: 'climatological',
       rowClass: 'text-[#fb923c]',
       headerBadge: null,
     },
     {
-      name: 'Raw NWP Regression',
+      name: t('rawNwp'),
       key: 'raw_nwp',
       rowClass: 'text-[#fbbf24]',
       headerBadge: null,
     },
     {
-      name: 'Our Model (LightGBM + CQR)',
+      name: t('ourModel'),
       key: 'model',
       rowClass: 'text-[#22c55e]',
-      headerBadge: 'BEST',
+      headerBadge: t('best'),
       highlight: true,
     },
   ]
@@ -98,10 +100,10 @@ export default function EvaluationView() {
         <BarChart2 className="h-7 w-7 text-[#60a5fa]" aria-hidden />
         <div>
           <h1 className="text-xl font-medium tracking-tight text-[#e8eaf0]">
-            Model Performance Evaluation
+            {t('modelPerformance')}
           </h1>
           <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[#8b8fa8]">
-            Evaluated on rolling temporal holdout. No future data contaminates training windows.
+            {t('modelSubtitle')}
           </p>
         </div>
       </div>
@@ -109,25 +111,25 @@ export default function EvaluationView() {
       {imp ? (
         <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-3">
           <StatCard
-            title="Solar nMAE Improvement"
+            title={t('solarImprovement')}
             value={`${imp.nmae_solar_pct}%`}
-            subtitle="vs persistence baseline"
+            subtitle={t('vsPersistence')}
             className="border-[#22c55e]/25 bg-[#22c55e]/8"
             valueClassName="text-[#22c55e]"
             icon={TrendingUp}
           />
           <StatCard
-            title="Wind nMAE Improvement"
+            title={t('windImprovement')}
             value={`${imp.nmae_wind_pct}%`}
-            subtitle="vs persistence baseline"
+            subtitle={t('vsPersistence')}
             className="border-[#22c55e]/25 bg-[#22c55e]/8"
             valueClassName="text-[#22c55e]"
             icon={TrendingUp}
           />
           <StatCard
-            title="CRPS Improvement"
+            title={t('crpsImprovement')}
             value={`${imp.crps_pct}%`}
-            subtitle="vs persistence baseline"
+            subtitle={t('vsPersistence')}
             className="border-[#22c55e]/25 bg-[#22c55e]/8"
             valueClassName="text-[#22c55e]"
             icon={TrendingUp}
@@ -139,9 +141,9 @@ export default function EvaluationView() {
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="bg-[#1a1d27] text-left text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
-              <th className="border-b border-[#2a2d3e] px-4 py-3">Model</th>
-              <th className="border-b border-[#2a2d3e] px-4 py-3">nMAE Solar</th>
-              <th className="border-b border-[#2a2d3e] px-4 py-3">nMAE Wind</th>
+              <th className="border-b border-[#2a2d3e] px-4 py-3">{t('model')}</th>
+              <th className="border-b border-[#2a2d3e] px-4 py-3">{t('nmaeSolar')}</th>
+              <th className="border-b border-[#2a2d3e] px-4 py-3">{t('nmaeWind')}</th>
               <th className="border-b border-[#2a2d3e] px-4 py-3">CRPS</th>
             </tr>
           </thead>
@@ -222,7 +224,7 @@ export default function EvaluationView() {
       <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="rounded-xl border border-[#2a2d3e] bg-[#1a1d27] p-4">
           <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
-            Persistence
+            {t('persistence')}
           </p>
           <p className="mt-2 text-[13px] leading-relaxed text-[#8b8fa8]">
             Forecast equals actual generation from 24 hours prior. The simplest possible forecast.
@@ -230,7 +232,7 @@ export default function EvaluationView() {
         </div>
         <div className="rounded-xl border border-[#2a2d3e] bg-[#1a1d27] p-4">
           <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
-            Climatological Mean
+            {t('climatological')}
           </p>
           <p className="mt-2 text-[13px] leading-relaxed text-[#8b8fa8]">
             Average generation for that plant, hour, and month. Captures seasonal patterns, nothing
@@ -239,7 +241,7 @@ export default function EvaluationView() {
         </div>
         <div className="rounded-xl border border-[#2a2d3e] bg-[#1a1d27] p-4">
           <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
-            Raw NWP Regression
+            {t('rawNwp')}
           </p>
           <p className="mt-2 text-[13px] leading-relaxed text-[#8b8fa8]">
             Linear regression on raw weather variables without physics transforms or asset encoding.

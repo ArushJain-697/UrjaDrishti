@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { PLANTS, CLUSTER_LABELS } from '../api/client'
+import { PLANTS } from '../api/client'
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 function Dot({ type }) {
   return (
@@ -14,6 +15,7 @@ function Dot({ type }) {
 }
 
 export default function PlantSelector({ value, onChange, className = '' }) {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const listId = useId()
@@ -28,8 +30,8 @@ export default function PlantSelector({ value, onChange, className = '' }) {
   }, [])
 
   const groups = [
-    { key: 'A', label: CLUSTER_LABELS.A, items: PLANTS.filter((p) => p.cluster === 'A') },
-    { key: 'B', label: CLUSTER_LABELS.B, items: PLANTS.filter((p) => p.cluster === 'B') },
+    { key: 'A', label: t('clusterA'), items: PLANTS.filter((p) => p.cluster === 'A') },
+    { key: 'B', label: t('clusterB'), items: PLANTS.filter((p) => p.cluster === 'B') },
   ]
 
   return (

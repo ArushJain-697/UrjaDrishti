@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Lock } from 'lucide-react'
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 function formatIST(d) {
   return d.toLocaleTimeString('en-IN', {
@@ -13,6 +14,7 @@ function formatIST(d) {
 
 export default function SystemStatus() {
   const [now, setNow] = useState(() => new Date())
+  const { t } = useLanguage()
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
@@ -27,7 +29,7 @@ export default function SystemStatus() {
           aria-hidden
         />
         <span className="text-[11px] font-semibold uppercase tracking-wide text-[#22c55e]">
-          LIVE
+          {t('live')}
         </span>
       </div>
       <span className="hidden h-4 w-px bg-[#2a2d3e] sm:inline" aria-hidden />
@@ -41,7 +43,7 @@ export default function SystemStatus() {
       <span className="hidden text-[#8b8fa8] md:inline">KREDL / KSPDCL</span>
       <span className="flex items-center gap-1 text-[#5a5d72]">
         <Lock className="h-3.5 w-3.5" aria-hidden />
-        <span>On-Premise</span>
+        <span>{t('onPremise')}</span>
       </span>
     </div>
   )

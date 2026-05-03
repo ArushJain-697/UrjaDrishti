@@ -3,8 +3,10 @@ import { Check, Equal, X as XIcon } from 'lucide-react'
 import { fetchReconciled, formatMw } from '../api/client'
 import LoadingSpinner from './LoadingSpinner'
 import ServiceErrorBanner from './ServiceErrorBanner'
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 export default function ReconciliationToggle({ cluster, mintEnabled, onMintChange }) {
+  const { t } = useLanguage()
   const clusterKey = cluster === 'A' ? 'cluster_a' : 'cluster_b'
   const [payload, setPayload] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -48,9 +50,9 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-[#e8eaf0]">MinT reconciliation view</p>
+          <p className="text-sm font-medium text-[#e8eaf0]">{t('mintTitle')}</p>
           <p className="mt-0.5 text-[12px] text-[#8b8fa8]">
-            Toggle OFF for pre-MinT inconsistency, ON for post-MinT reconciled totals
+            {t('mintSubtitle')}
           </p>
         </div>
         <button
@@ -89,7 +91,7 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
                 <div className="grid grid-cols-1 items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
                   <div className="rounded-lg border border-[#2a2d3e] bg-[#1a1d27] p-4 text-center transition-colors duration-300">
                     <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
-                      Plant Sum
+                      {t('plantSum')}
                     </p>
                     <p
                       className={`mt-2 text-xl font-medium tabular-nums ${
@@ -110,7 +112,7 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
                   </div>
                   <div className="rounded-lg border border-[#2a2d3e] bg-[#1a1d27] p-4 text-center transition-colors duration-300">
                     <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
-                      Cluster Forecast
+                      {t('clusterForecast')}
                     </p>
                     <p
                       className={`mt-2 text-xl font-medium tabular-nums ${
@@ -125,12 +127,12 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
                   {mintEnabled ? (
                     <span className="inline-flex items-center gap-2 rounded-full border border-[#22c55e]/40 bg-[#22c55e]/10 px-3 py-1.5 text-[12px] font-medium text-[#22c55e]">
                       <Check className="h-4 w-4" aria-hidden />
-                      RECONCILED ✓ — MinT reconciliation applied, mathematically guaranteed
+                      {t('reconciled')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-2 rounded-full border border-[#ef4444]/40 bg-[#ef4444]/10 px-3 py-1.5 text-[12px] font-medium text-[#ef4444]">
                       <XIcon className="h-4 w-4" aria-hidden />
-                      INCONSISTENT — plant and cluster dashboards contradict each other
+                      {t('inconsistent')}
                     </span>
                   )}
                 </div>

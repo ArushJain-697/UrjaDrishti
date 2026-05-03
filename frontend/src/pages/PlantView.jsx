@@ -14,13 +14,7 @@ import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
 import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
-
-const SCENARIOS = [
-  'Normal Day',
-  'Cloud Ramp Event',
-  'Monsoon Onset',
-  'Wind Ramp',
-]
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 function widenUncertainty(forecast, factor) {
   if (!forecast || factor <= 1) return forecast
@@ -44,6 +38,7 @@ function scenarioFactor(scenario) {
 }
 
 export default function PlantView() {
+  const { t } = useLanguage()
   const [selectedPlant, setSelectedPlant] = useState('PVG_S1')
   const [rawForecast, setRawForecast] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -54,6 +49,15 @@ export default function PlantView() {
   const [isIntradayLoading, setIsIntradayLoading] = useState(false)
   const [activeScenario, setActiveScenario] = useState('Normal Day')
   const [lastUpdated, setLastUpdated] = useState(null)
+  const scenarios = useMemo(
+    () => [
+      { value: 'Normal Day', label: t('normalDay') },
+      { value: 'Cloud Ramp Event', label: t('cloudRamp') },
+      { value: 'Monsoon Onset', label: t('monsoonOnset') },
+      { value: 'Wind Ramp', label: t('windRamp') },
+    ],
+    [t]
+  )
 
   const displayForecast = useMemo(() => {
     if (!rawForecast) return null
@@ -113,7 +117,7 @@ export default function PlantView() {
           <PlantSelector value={selectedPlant} onChange={setSelectedPlant} />
           <div className="min-w-[200px]">
             <label htmlFor="scenario" className="sr-only">
-              Scenario
+              {t('highUncertainty')}
             </label>
             <select
               id="scenario"
@@ -121,9 +125,9 @@ export default function PlantView() {
               onChange={(e) => setActiveScenario(e.target.value)}
               className="w-full cursor-pointer rounded-lg border border-[#2a2d3e] bg-[#1e2130] px-3 py-2 text-sm text-[#e8eaf0] outline-none transition hover:border-[#3b82f6]/40 focus:border-[#3b82f6]"
             >
-              {SCENARIOS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {scenarios.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
                 </option>
               ))}
             </select>
@@ -138,12 +142,12 @@ export default function PlantView() {
           {isIntradayLoading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              Recalibrating…
+              {t('recalibrating')}
             </>
           ) : (
             <>
               <RefreshCw className="h-4 w-4" aria-hidden />
-              Simulate Intraday Update
+              {t('simulateIntraday')}
             </>
           )}
         </button>
@@ -151,7 +155,7 @@ export default function PlantView() {
 
       {activeScenario !== 'Normal Day' ? (
         <div className="mt-3 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/10 px-3 py-2 text-[13px] text-[#fbbf24]">
-          ⚠ Stress scenario active: {activeScenario} — uncertainty intervals are wider than normal
+          ⚠ {t('highUncertainty')}: {scenarios.find((s) => s.value === activeScenario)?.label}
         </div>
       ) : null}
 
@@ -183,18 +187,18 @@ export default function PlantView() {
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-[#8b8fa8]">
             <span>
-              Last updated:{' '}
+              {t('lastUpdated')}:{' '}
               {lastUpdated
                 ? lastUpdated.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
                 : '—'}
             </span>
             <span className="inline-flex items-center gap-2">
               <span className="rounded-full bg-[#1a1d27] px-2 py-0.5 text-[11px] font-medium text-[#8b8fa8]">
-                Day-ahead forecast
+                {t('dayAhead')}
               </span>
               {isIntradayMode ? (
                 <span className="rounded-full bg-[#f59e0b]/15 px-2 py-0.5 text-[11px] font-medium text-[#fbbf24]">
-                  Intraday active ✓
+                  {t('intradayActive')}
                 </span>
               ) : null}
             </span>

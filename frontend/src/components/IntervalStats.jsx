@@ -1,4 +1,5 @@
 import { formatMw } from '../api/client'
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 function bandColor(avgWidth) {
   if (avgWidth < 20) return 'text-[#22c55e]'
@@ -21,12 +22,13 @@ function avgBand(p10, p90, fromH, toH) {
 }
 
 export default function IntervalStats({ p10, p90 }) {
+  const { t } = useLanguage()
   const morning = avgBand(p10, p90, 6, 12)
   const afternoon = avgBand(p10, p90, 13, 18)
 
   const cards = [
-    { label: 'Morning Confidence', value: morning },
-    { label: 'Afternoon Confidence', value: afternoon },
+    { label: t('morningConfidence'), value: morning },
+    { label: t('afternoonConfidence'), value: afternoon },
   ]
 
   return (
@@ -42,7 +44,7 @@ export default function IntervalStats({ p10, p90 }) {
           <p className={`mt-2 text-2xl font-medium tracking-tight ${bandColor(c.value)}`}>
             {formatMw(c.value)} MW
           </p>
-          <p className="mt-1 text-[12px] text-[#8b8fa8]">avg confidence band</p>
+          <p className="mt-1 text-[12px] text-[#8b8fa8]">{t('avgConfidenceBand')}</p>
         </div>
       ))}
     </div>

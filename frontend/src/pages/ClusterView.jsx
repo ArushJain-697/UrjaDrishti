@@ -16,6 +16,7 @@ import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
 import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
 import { Info } from 'lucide-react'
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 const BAR_COLORS = {
   PVG_S1: '#3b82f6',
@@ -48,6 +49,7 @@ function ClusterTooltip({ active, payload, label }) {
 }
 
 export default function ClusterView() {
+  const { t } = useLanguage()
   const [selectedCluster, setSelectedCluster] = useState('A')
   const [forecasts, setForecasts] = useState({})
   const [loading, setLoading] = useState(true)
@@ -105,8 +107,8 @@ export default function ClusterView() {
   }, [forecasts, plantIds])
 
   const tabs = [
-    { id: 'A', label: 'Cluster A — Pavagada Solar' },
-    { id: 'B', label: 'Cluster B — Gadag Wind' },
+    { id: 'A', label: t('clusterA') },
+    { id: 'B', label: t('clusterB') },
   ]
 
   return (
@@ -193,12 +195,12 @@ export default function ClusterView() {
       <section className="mt-10">
         <div className="mb-2 flex items-center gap-2">
           <h2 className="text-lg font-medium tracking-tight text-[#e8eaf0]">
-            Hierarchical Consistency
+            {t('hierarchicalConsistency')}
           </h2>
           <Info className="h-4 w-4 text-[#8b8fa8]" aria-hidden />
         </div>
         <p className="mb-4 max-w-3xl text-sm leading-relaxed text-[#8b8fa8]">
-          Plant-level forecasts must sum exactly to cluster-level forecasts for operator trust.
+          {t('hierarchicalSubtitle')}
         </p>
         <ReconciliationToggle
           cluster={selectedCluster}

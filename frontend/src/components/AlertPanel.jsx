@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Bell, CheckCircle, Info } from 'lucide-react'
 import { fetchAlerts } from '../api/client'
 import LoadingSpinner from './LoadingSpinner'
+import { useLanguage } from '../context/LanguageContext.jsx'
 
 const border = {
   warning: 'border-l-[#f59e0b]',
@@ -15,7 +16,14 @@ const Icon = {
   info: Info,
 }
 
+const ALERT_TEXT_KEYS = {
+  warning: 'holdReserve',
+  success: 'safeToSchedule',
+  info: 'highUncertainty',
+}
+
 export default function AlertPanel({ plantId, p50, hours }) {
+  const { t } = useLanguage()
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -42,7 +50,7 @@ export default function AlertPanel({ plantId, p50, hours }) {
     <div className="flex h-full min-h-[320px] flex-col rounded-xl border border-[#2a2d3e] bg-[#1e2130]">
       <div className="flex items-center gap-2 border-b border-[#2a2d3e] px-4 py-3">
         <Bell className="h-4 w-4 text-[#60a5fa]" aria-hidden />
-        <h2 className="text-sm font-medium tracking-tight text-[#e8eaf0]">Forecast Alerts</h2>
+        <h2 className="text-sm font-medium tracking-tight text-[#e8eaf0]">{t('forecastAlerts')}</h2>
       </div>
 
       {error && !alerts.length && !loading ? (
@@ -69,7 +77,7 @@ export default function AlertPanel({ plantId, p50, hours }) {
           <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
             <CheckCircle className="h-10 w-10 text-[#22c55e]" aria-hidden />
             <p className="max-w-xs text-sm leading-relaxed text-[#8b8fa8]">
-              No active alerts — forecast confidence is high
+              {t('noAlerts')}
             </p>
           </div>
         ) : (
@@ -96,7 +104,9 @@ export default function AlertPanel({ plantId, p50, hours }) {
                       <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
                         {String(a.hour).padStart(2, '0')}:00
                       </p>
-                      <p className="mt-1 text-[13px] leading-relaxed text-[#e8eaf0]">{a.message}</p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-[#e8eaf0]">
+                        {t(ALERT_TEXT_KEYS[a.type] || 'highUncertainty')}
+                      </p>
                     </div>
                   </div>
                 </li>
