@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Bell, CheckCircle, Info } from 'lucide-react'
 import { fetchAlerts } from '../api/client'
 import LoadingSpinner from './LoadingSpinner'
-import ServiceErrorBanner from './ServiceErrorBanner'
 
 const border = {
   warning: 'border-l-[#f59e0b]',
@@ -19,7 +18,6 @@ const Icon = {
 export default function AlertPanel({ plantId, p50, hours }) {
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [usedMock, setUsedMock] = useState(false)
   const [error, setError] = useState(null)
 
   const load = useCallback(async () => {
@@ -32,7 +30,6 @@ export default function AlertPanel({ plantId, p50, hours }) {
     setError(null)
     const res = await fetchAlerts(plantId, p50, hours)
     setAlerts(res.data?.alerts ?? [])
-    setUsedMock(res.usedMock)
     setError(res.error)
     setLoading(false)
   }, [plantId, p50, hours])
@@ -48,9 +45,18 @@ export default function AlertPanel({ plantId, p50, hours }) {
         <h2 className="text-sm font-medium tracking-tight text-[#e8eaf0]">Forecast Alerts</h2>
       </div>
 
-      {usedMock && error ? (
+      {error && !alerts.length && !loading ? (
         <div className="px-4 pt-3">
-          <ServiceErrorBanner onRetry={load} />
+          <p className="rounded-lg border border-[#ef4444]/50 bg-[#1e2130] px-3 py-2 text-[13px] text-[#8b8fa8]">
+            Unable to load alerts.{' '}
+            <button
+              type="button"
+              onClick={load}
+              className="text-[#60a5fa] underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </p>
         </div>
       ) : null}
 

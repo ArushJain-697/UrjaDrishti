@@ -31,7 +31,12 @@ export default function SystemStatus() {
         </span>
       </div>
       <span className="hidden h-4 w-px bg-[#2a2d3e] sm:inline" aria-hidden />
-      <span className="font-mono tabular-nums text-[#e8eaf0]">{formatIST(now)}</span>
+      <span className="inline-flex items-baseline gap-1.5">
+        <span className="font-mono tabular-nums text-[#e8eaf0]">{formatIST(now)}</span>
+        <span className="text-[10px] font-medium uppercase tracking-wide text-[#5a5d72]">
+          IST
+        </span>
+      </span>
       <span className="hidden h-4 w-px bg-[#2a2d3e] md:inline" aria-hidden />
       <span className="hidden text-[#8b8fa8] md:inline">KREDL / KSPDCL</span>
       <span className="flex items-center gap-1 text-[#5a5d72]">

@@ -43,6 +43,8 @@ export default function ForecastChart({
 }) {
   const meta = plantMeta(plantId)
   const lineColor = meta.type === 'wind' ? '#a78bfa' : '#3b82f6'
+  const bandFill =
+    meta.type === 'wind' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(59, 130, 246, 0.2)'
 
   const data = forecast.hours.map((h, i) => ({
     hour: h,
@@ -98,7 +100,7 @@ export default function ForecastChart({
             dataKey="bandWidth"
             stackId="band"
             stroke="none"
-            fill="rgba(59, 130, 246, 0.15)"
+            fill={bandFill}
             isAnimationActive
             animationDuration={800}
           />

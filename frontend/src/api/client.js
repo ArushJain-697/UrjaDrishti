@@ -279,12 +279,22 @@ export async function fetchReconciled() {
   }
 }
 
+function tryMockEvaluation() {
+  try {
+    return { data: mockEvaluation(), mockError: null }
+  } catch (e) {
+    return { data: null, mockError: e }
+  }
+}
+
 export async function fetchEvaluation() {
   try {
     const { data } = await client.get('/api/evaluation/')
-    return { data, usedMock: false, error: null }
+    return { data, usedFallback: false, error: null }
   } catch (error) {
-    return { data: mockEvaluation(), usedMock: true, error }
+    const { data, mockError } = tryMockEvaluation()
+    if (data) return { data, usedFallback: true, error }
+    return { data: null, usedFallback: true, error: mockError || error }
   }
 }
 

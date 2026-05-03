@@ -4,6 +4,7 @@ import { fetchEvaluation } from '../api/client'
 import StatCard from '../components/StatCard.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
+import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
 
 function fmtMetric(x) {
@@ -21,17 +22,19 @@ function improvementColor(pct) {
 export default function EvaluationView() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [usedMock, setUsedMock] = useState(false)
+  const [usedFallback, setUsedFallback] = useState(false)
   const [error, setError] = useState(null)
+  const [cacheNoticeKey, setCacheNoticeKey] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     const res = await fetchEvaluation()
     setData(res.data)
-    setUsedMock(res.usedMock)
+    setUsedFallback(res.usedFallback)
     setError(res.error)
     setLoading(false)
+    if (res.data && res.usedFallback && res.error) setCacheNoticeKey((k) => k + 1)
   }, [])
 
   useEffect(() => {
@@ -82,10 +85,13 @@ export default function EvaluationView() {
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 pb-8 pt-6">
-      {usedMock && error ? (
+      {!data && error ? (
         <div className="mb-4">
           <ServiceErrorBanner onRetry={load} />
         </div>
+      ) : null}
+      {data && usedFallback && error ? (
+        <CachedDataNotice key={cacheNoticeKey} />
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">

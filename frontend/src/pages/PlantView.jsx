@@ -12,6 +12,7 @@ import ForecastChart from '../components/ForecastChart.jsx'
 import AlertPanel from '../components/AlertPanel.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
+import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
 
 const SCENARIOS = [
@@ -47,7 +48,8 @@ export default function PlantView() {
   const [rawForecast, setRawForecast] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [forecastError, setForecastError] = useState(null)
-  const [forecastUsedMock, setForecastUsedMock] = useState(false)
+  const [forecastUsedFallback, setForecastUsedFallback] = useState(false)
+  const [cacheNoticeKey, setCacheNoticeKey] = useState(0)
   const [isIntradayMode, setIsIntradayMode] = useState(false)
   const [isIntradayLoading, setIsIntradayLoading] = useState(false)
   const [activeScenario, setActiveScenario] = useState('Normal Day')
@@ -63,10 +65,11 @@ export default function PlantView() {
     setForecastError(null)
     const res = await fetchForecast(selectedPlant, 0, activeScenario)
     setRawForecast(res.data)
-    setForecastUsedMock(res.usedMock)
+    setForecastUsedFallback(res.usedFallback)
     setForecastError(res.error)
     setLastUpdated(new Date())
     setIsLoading(false)
+    if (res.data && res.usedFallback && res.error) setCacheNoticeKey((k) => k + 1)
   }, [selectedPlant, activeScenario])
 
   useEffect(() => {
@@ -83,11 +86,12 @@ export default function PlantView() {
     const actuals = rawForecast.p50.slice(0, 6)
     const res = await fetchIntradayForecast(selectedPlant, actuals)
     setRawForecast(res.data)
-    setForecastUsedMock(res.usedMock)
+    setForecastUsedFallback(res.usedFallback)
     setForecastError(res.error)
     setIsIntradayMode(true)
     setLastUpdated(new Date())
     setIsIntradayLoading(false)
+    if (res.data && res.usedFallback && res.error) setCacheNoticeKey((k) => k + 1)
   }
 
   const meta = plantMeta(selectedPlant)
@@ -95,10 +99,13 @@ export default function PlantView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 pb-8 pt-6">
-      {forecastUsedMock && forecastError ? (
+      {!rawForecast && forecastError ? (
         <div className="mb-4">
           <ServiceErrorBanner onRetry={loadForecast} />
         </div>
+      ) : null}
+      {rawForecast && forecastUsedFallback && forecastError ? (
+        <CachedDataNotice key={cacheNoticeKey} />
       ) : null}
 
       <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
@@ -181,20 +188,16 @@ export default function PlantView() {
                 ? lastUpdated.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
                 : '—'}
             </span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                isIntradayMode
-                  ? 'bg-[#f59e0b]/15 text-[#fbbf24]'
-                  : 'bg-[#1a1d27] text-[#8b8fa8]'
-              }`}
-            >
-              {isIntradayMode ? 'Intraday update active' : 'Day-ahead forecast'}
-            </span>
-            {isIntradayMode ? (
-              <span className="rounded-full bg-[#f59e0b]/15 px-2 py-0.5 text-[11px] font-medium text-[#fbbf24]">
-                Intraday active
+            <span className="inline-flex items-center gap-2">
+              <span className="rounded-full bg-[#1a1d27] px-2 py-0.5 text-[11px] font-medium text-[#8b8fa8]">
+                Day-ahead forecast
               </span>
-            ) : null}
+              {isIntradayMode ? (
+                <span className="rounded-full bg-[#f59e0b]/15 px-2 py-0.5 text-[11px] font-medium text-[#fbbf24]">
+                  Intraday active ✓
+                </span>
+              ) : null}
+            </span>
             <span className="text-[#5a5d72]">
               {meta.name} · {formatMw(meta.capacityMw)} MW ({meta.type})
             </span>

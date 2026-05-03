@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, Equal, X as XIcon } from 'lucide-react'
 import { fetchReconciled, formatMw } from '../api/client'
 import LoadingSpinner from './LoadingSpinner'
@@ -8,15 +8,15 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
   const clusterKey = cluster === 'A' ? 'cluster_a' : 'cluster_b'
   const [payload, setPayload] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [usedMock, setUsedMock] = useState(false)
   const [error, setError] = useState(null)
+  const [contentOpacity, setContentOpacity] = useState(1)
+  const mintTransitionSkip = useRef(true)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     const res = await fetchReconciled()
     setPayload(res.data)
-    setUsedMock(res.usedMock)
     setError(res.error)
     setLoading(false)
   }, [])
@@ -25,12 +25,22 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
     load()
   }, [load])
 
+  useEffect(() => {
+    if (mintTransitionSkip.current) {
+      mintTransitionSkip.current = false
+      return
+    }
+    setContentOpacity(0.45)
+    const show = window.setTimeout(() => setContentOpacity(1), 300)
+    return () => window.clearTimeout(show)
+  }, [mintEnabled])
+
   const block = payload?.[clusterKey]
   const view = mintEnabled ? block?.post_mint : block?.pre_mint
 
   return (
     <div className="rounded-xl border border-[#2a2d3e] bg-[#1e2130] p-4">
-      {usedMock && error ? (
+      {!payload && error ? (
         <div className="mb-4">
           <ServiceErrorBanner onRetry={load} />
         </div>
@@ -69,8 +79,8 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
           </div>
         ) : (
           <div
-            key={mintEnabled ? 'mint-on' : 'mint-off'}
-            className="transition-opacity duration-300 motion-safe:animate-[fadeRecon_280ms_ease-out]"
+            className="transition-opacity duration-300"
+            style={{ opacity: contentOpacity, transitionTimingFunction: 'ease' }}
           >
             {!view ? (
               <p className="text-sm text-[#8b8fa8]">No reconciliation data</p>
@@ -111,7 +121,7 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
                     </p>
                   </div>
                 </div>
-                <div className="mt-4 flex justify-center transition-opacity duration-300">
+                <div className="mt-4 flex justify-center">
                   {mintEnabled ? (
                     <span className="inline-flex items-center gap-2 rounded-full border border-[#22c55e]/40 bg-[#22c55e]/10 px-3 py-1.5 text-[12px] font-medium text-[#22c55e]">
                       <Check className="h-4 w-4" aria-hidden />

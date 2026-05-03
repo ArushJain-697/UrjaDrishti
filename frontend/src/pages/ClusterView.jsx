@@ -13,6 +13,7 @@ import { fetchForecast, plantsInCluster, PLANTS } from '../api/client'
 import ReconciliationToggle from '../components/ReconciliationToggle.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
+import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
 import { Info } from 'lucide-react'
 
@@ -21,8 +22,8 @@ const BAR_COLORS = {
   PVG_S2: '#60a5fa',
   MIX_S1: '#93c5fd',
   GAD_W1: '#a78bfa',
-  GAD_W2: '#c4b5fd',
-  MIX_W1: '#7c3aed',
+  GAD_W2: '#7c3aed',
+  MIX_W1: '#c4b5fd',
 }
 
 const PLANT_NAMES = Object.fromEntries(PLANTS.map((p) => [p.id, p.name]))
@@ -51,7 +52,8 @@ export default function ClusterView() {
   const [forecasts, setForecasts] = useState({})
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
-  const [usedMock, setUsedMock] = useState(false)
+  const [usedFallback, setUsedFallback] = useState(false)
+  const [cacheNoticeKey, setCacheNoticeKey] = useState(0)
   const [mintEnabled, setMintEnabled] = useState(false)
 
   const plantIds = useMemo(
@@ -62,19 +64,23 @@ export default function ClusterView() {
   const loadCluster = useCallback(async () => {
     setLoading(true)
     setErr(null)
+    setForecasts({})
     const ids = plantsInCluster(selectedCluster).map((p) => p.id)
     const results = await Promise.all(ids.map((id) => fetchForecast(id, 0, 'Normal Day')))
     const next = {}
-    let mock = false
+    let fallback = false
     let firstErr = null
+    let anyMissing = false
     results.forEach((r, i) => {
       next[ids[i]] = r.data
-      if (r.usedMock) mock = true
+      if (r.usedFallback) fallback = true
       if (r.error) firstErr = r.error
+      if (!r.data) anyMissing = true
     })
     setForecasts(next)
-    setUsedMock(mock)
+    setUsedFallback(fallback)
     setErr(firstErr)
+    if (!anyMissing && fallback && firstErr) setCacheNoticeKey((k) => k + 1)
     setLoading(false)
   }, [selectedCluster])
 
@@ -105,10 +111,17 @@ export default function ClusterView() {
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 pb-8 pt-6">
-      {usedMock && err ? (
+      {Object.values(forecasts).some((f) => f == null) && err ? (
         <div className="mb-4">
           <ServiceErrorBanner onRetry={loadCluster} />
         </div>
+      ) : null}
+      {usedFallback &&
+      err &&
+      plantIds.length > 0 &&
+      plantIds.every((id) => forecasts[id] != null) &&
+      !loading ? (
+        <CachedDataNotice key={cacheNoticeKey} />
       ) : null}
 
       <div className="flex gap-2 border-b border-[#2a2d3e]">

@@ -15,12 +15,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0f1117] text-[#e8eaf0]">
-      <div
-        className="fixed left-0 right-0 top-0 z-[200] h-[2px] w-full bg-[linear-gradient(90deg,#3b82f6_0%,#a78bfa_50%,#14b8a6_100%)]"
-        aria-hidden
-      />
-      <header className="sticky top-0 z-[100] border-b border-[#2a2d3e] bg-[#1a1d27]">
-        <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+      <header className="sticky top-0 z-[100] bg-[#1a1d27]">
+        <div
+          className="h-[3px] w-full"
+          style={{
+            background: 'linear-gradient(to right, #3b82f6, #a78bfa, #14b8a6)',
+          }}
+          aria-hidden
+        />
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-4 border-b border-[#2a2d3e] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3 lg:max-w-xs">
             <img
               src="/urja-logo.svg"
