@@ -1,21 +1,237 @@
 import axios from 'axios'
 
-const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+export const client = axios.create({
+  baseURL: API_BASE,
   timeout: 10000,
 })
 
-export const getForecast = (plantId) =>
-  client.post('/api/forecast/', { plant_id: plantId, hours_of_actuals: 0 })
+/** @typedef {'solar' | 'wind'} PlantType */
 
-export const getIntradayForecast = (plantId, actuals) =>
-  client.post('/api/forecast/intraday', { plant_id: plantId, actuals })
+/** @type {Array<{ id: string, name: string, capacityMw: number, cluster: 'A' | 'B', type: PlantType }>} */
+export const PLANTS = [
+  { id: 'PVG_S1', name: 'Pavagada Solar 1', capacityMw: 150, cluster: 'A', type: 'solar' },
+  { id: 'PVG_S2', name: 'Pavagada Solar 2', capacityMw: 120, cluster: 'A', type: 'solar' },
+  { id: 'MIX_S1', name: 'Chitradurga Solar', capacityMw: 90, cluster: 'A', type: 'solar' },
+  { id: 'GAD_W1', name: 'Gadag Wind 1', capacityMw: 100, cluster: 'B', type: 'wind' },
+  { id: 'GAD_W2', name: 'Gadag Wind 2', capacityMw: 80, cluster: 'B', type: 'wind' },
+  { id: 'MIX_W1', name: 'Raichur Wind', capacityMw: 60, cluster: 'B', type: 'wind' },
+]
 
-export const getAlerts = (plantId, p50, hours) =>
-  client.post('/api/alerts/', { plant_id: plantId, p50, hours })
+export const CLUSTER_LABELS = {
+  A: 'Cluster A — Pavagada Solar',
+  B: 'Cluster B — Gadag Wind',
+}
 
-export const getEvaluation = () =>
-  client.get('/api/evaluation/')
+const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
-export const getReconciled = () =>
-  client.get('/api/reconciled/')
+export function plantMeta(plantId) {
+  return PLANTS.find((p) => p.id === plantId) || PLANTS[0]
+}
+
+/** Deterministic pseudo-random in [-1, 1] */
+function detNoise(plantId, hour, salt) {
+  let s = salt * 17
+  for (let i = 0; i < plantId.length; i++) {
+    s += plantId.charCodeAt(i) * (i + 1)
+  }
+  const x = Math.sin(hour * 0.91 + s * 0.01) + Math.cos(hour * 0.37 + s * 0.02)
+  return x * 0.5
+}
+
+function solarP50(hour, capacityMw) {
+  const dayCurve = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI))
+  return Math.min(capacityMw, capacityMw * 0.92 * dayCurve + capacityMw * 0.02)
+}
+
+function windP50(plantId, hour, capacityMw) {
+  const base =
+    0.35 +
+    0.22 * Math.sin((hour / 24) * Math.PI * 2) +
+    0.12 * Math.sin((hour / 12) * Math.PI * 2 + 1.1) +
+    0.08 * detNoise(plantId, hour, 3)
+  const f = Math.max(0.08, Math.min(0.95, base + detNoise(plantId, hour, 1) * 0.06))
+  return Math.min(capacityMw, capacityMw * f)
+}
+
+/**
+ * @param {string} plantId
+ * @param {{ halfWidth: number, stressMultiplier?: number }} bandOpts
+ */
+function buildSeries(plantId, bandOpts) {
+  const { capacityMw, type } = plantMeta(plantId)
+  const stress = bandOpts.stressMultiplier ?? 1
+  const half = bandOpts.halfWidth * stress
+
+  const p50 = HOURS.map((h) =>
+    type === 'solar' ? solarP50(h, capacityMw) : windP50(plantId, h, capacityMw)
+  )
+
+  const p10 = HOURS.map((h, i) => {
+    const n = detNoise(plantId, h, 2) * 1.2
+    return Math.max(0, p50[i] - half + n)
+  })
+  const p90 = HOURS.map((h, i) => {
+    const n = detNoise(plantId, h, 4) * 1.2
+    return Math.max(0, p50[i] + half + n)
+  })
+
+  return {
+    plant_id: plantId,
+    hours: HOURS,
+    p50,
+    p10,
+    p90,
+  }
+}
+
+/** @param {string} scenario */
+function scenarioStressMultiplier(scenario) {
+  if (!scenario || scenario === 'Normal Day') return 1
+  return 1.45
+}
+
+export function mockForecast(plantId, scenario = 'Normal Day') {
+  return buildSeries(plantId, {
+    halfWidth: 15,
+    stressMultiplier: scenarioStressMultiplier(scenario),
+  })
+}
+
+export function mockIntradayForecast(plantId) {
+  return buildSeries(plantId, { halfWidth: 10 })
+}
+
+export function mockAlerts() {
+  return {
+    alerts: [
+      {
+        hour: 10,
+        message:
+          'SHAP drivers indicate increased cloud cover and diffuse irradiance around mid-morning — expect a softer ramp than clear-sky baseline.',
+        type: 'warning',
+      },
+      {
+        hour: 13,
+        message:
+          'Conditions align with favourable generation through the midday peak — forecast confidence is elevated for this interval.',
+        type: 'success',
+      },
+      {
+        hour: 17,
+        message:
+          'Evening transition introduces rising forecast uncertainty as boundary-layer dynamics become less constrained by observations.',
+        type: 'info',
+      },
+    ],
+  }
+}
+
+export function mockReconciled() {
+  return {
+    cluster_a: {
+      pre_mint: { plant_sum: 142.3, cluster_forecast: 156.7, consistent: false },
+      post_mint: { plant_sum: 149.1, cluster_forecast: 149.1, consistent: true },
+    },
+    cluster_b: {
+      pre_mint: { plant_sum: 87.4, cluster_forecast: 94.2, consistent: false },
+      post_mint: { plant_sum: 90.8, cluster_forecast: 90.8, consistent: true },
+    },
+  }
+}
+
+export function mockEvaluation() {
+  return {
+    baselines: {
+      persistence: { nmae_solar: 0.21, nmae_wind: 0.24, crps: 0.33 },
+      climatological: { nmae_solar: 0.17, nmae_wind: 0.2, crps: 0.29 },
+      raw_nwp: { nmae_solar: 0.15, nmae_wind: 0.18, crps: 0.26 },
+    },
+    model: { nmae_solar: 0.09, nmae_wind: 0.11, crps: 0.14 },
+    improvement_over_persistence: {
+      nmae_solar_pct: 57,
+      nmae_wind_pct: 54,
+      crps_pct: 58,
+    },
+  }
+}
+
+export function formatMw(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '0.0'
+  return n.toFixed(1)
+}
+
+/**
+ * @param {string} plantId
+ * @param {number} hoursOfActuals
+ * @param {string} [scenario]
+ */
+export async function fetchForecast(plantId, hoursOfActuals = 0, scenario = 'Normal Day') {
+  try {
+    const { data } = await client.post('/api/forecast/', {
+      plant_id: plantId,
+      hours_of_actuals: hoursOfActuals,
+    })
+    return { data, usedMock: false, error: null }
+  } catch (error) {
+    return { data: mockForecast(plantId, scenario), usedMock: true, error }
+  }
+}
+
+/**
+ * @param {string} plantId
+ * @param {number[]} actuals
+ */
+export async function fetchIntradayForecast(plantId, actuals) {
+  try {
+    const { data } = await client.post('/api/forecast/intraday', {
+      plant_id: plantId,
+      actuals,
+    })
+    return { data, usedMock: false, error: null }
+  } catch (error) {
+    return { data: mockIntradayForecast(plantId), usedMock: true, error }
+  }
+}
+
+/**
+ * @param {string} plantId
+ * @param {number[]} p50
+ * @param {number[]} hours
+ */
+export async function fetchAlerts(plantId, p50, hours) {
+  try {
+    const { data } = await client.post('/api/alerts/', {
+      plant_id: plantId,
+      p50,
+      hours,
+    })
+    return { data, usedMock: false, error: null }
+  } catch (error) {
+    return { data: mockAlerts(), usedMock: true, error }
+  }
+}
+
+export async function fetchReconciled() {
+  try {
+    const { data } = await client.get('/api/reconciled/')
+    return { data, usedMock: false, error: null }
+  } catch (error) {
+    return { data: mockReconciled(), usedMock: true, error }
+  }
+}
+
+export async function fetchEvaluation() {
+  try {
+    const { data } = await client.get('/api/evaluation/')
+    return { data, usedMock: false, error: null }
+  } catch (error) {
+    return { data: mockEvaluation(), usedMock: true, error }
+  }
+}
+
+export function plantsInCluster(cluster) {
+  return PLANTS.filter((p) => p.cluster === cluster)
+}
