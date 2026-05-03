@@ -64,10 +64,15 @@ export default function PlantView() {
     [t]
   )
 
+  // FIX 6: Only apply widenUncertainty when data came from the real API.
+  // The mock fallback (buildSeries in client.js) already applies scenario
+  // band-widening internally — applying it a second time here would double
+  // the interval width for stress scenarios.
   const displayForecast = useMemo(() => {
     if (!rawForecast) return null
+    if (forecastUsedFallback) return rawForecast
     return widenUncertainty(rawForecast, scenarioFactor(activeScenario))
-  }, [rawForecast, activeScenario])
+  }, [rawForecast, activeScenario, forecastUsedFallback])
 
   const loadForecast = useCallback(async () => {
     setIsLoading(true)
@@ -218,10 +223,14 @@ export default function PlantView() {
           </div>
         </div>
         <div className="w-full min-w-0 lg:w-[35%]">
+          {/* FIX 7: Memoize stable array refs so AlertPanel's useCallback
+              doesn't see new array identities on every parent render
+              (e.g. from the IST clock tick in SystemStatus), which would
+              otherwise trigger an infinite fetch loop. */}
           <AlertPanel
             plantId={selectedPlant}
-            p50={displayForecast?.p50 ?? []}
-            hours={displayForecast?.hours ?? []}
+            p50={useMemo(() => displayForecast?.p50 ?? [], [displayForecast])}
+            hours={useMemo(() => displayForecast?.hours ?? [], [displayForecast])}
           />
         </div>
       </div>

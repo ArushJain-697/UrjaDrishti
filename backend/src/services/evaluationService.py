@@ -1,12 +1,44 @@
-# Person 4 hook is now live.
-# get_results() currently returns shaped mock data (Day 1).
-# On Day 3, the TODO inside get_results() will be completed
-# once Person 2's forecast DataFrame is available.
-from src.ml.evaluation.metrics import get_results as ml_results
+"""
+Evaluation service.
+The ML import is deferred inside get_evaluation() so a missing dependency
+never prevents the FastAPI app from starting. Falls back to mock data
+(shaped identically to the real response) if the import or call fails.
+"""
 
-def get_evaluation():
+
+def _mock_evaluation() -> dict:
+    """
+    Mock evaluation data matching the exact shape the API/dashboard expects.
+    Model metrics (nmae_solar, nmae_wind, crps) are None until Person 2's
+    forecast DataFrame is connected on Day 3.
+    """
+    return {
+        "baselines": {
+            "persistence":    {"nmae_solar": 0.21, "nmae_wind": 0.24, "crps": 0.33},
+            "climatological": {"nmae_solar": 0.17, "nmae_wind": 0.20, "crps": 0.29},
+            "raw_nwp":        {"nmae_solar": 0.15, "nmae_wind": 0.18, "crps": 0.26},
+        },
+        "model": {
+            "nmae_solar": None,
+            "nmae_wind":  None,
+            "crps":       None,
+        },
+        "improvement_over_persistence": {
+            "nmae_solar_pct": None,
+            "nmae_wind_pct":  None,
+            "crps_pct":       None,
+        },
+    }
+
+
+def get_evaluation() -> dict:
+    """
+    Called by the evaluation route. Tries Person 4's real metrics module first,
+    falls back to mock if not yet available or if it raises.
+    """
     try:
+        from src.ml.evaluation.metrics import get_results as ml_results
         return ml_results()
     except Exception as e:
-        print(f"Evaluation error: {e}")
-        raise
+        print(f"Evaluation error: {e} — falling back to mock")
+        return _mock_evaluation()

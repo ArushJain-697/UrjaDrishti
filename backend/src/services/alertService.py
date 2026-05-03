@@ -1,12 +1,4 @@
 import numpy as np
-import sys
-import os
-
-# Add backend path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Import Person 3's actual alert generation
-from ml.explainability.alerts import generate_alerts as ml_generate_alerts
 
 
 def _mock_alerts(plant_id: str, p50: list, hours: list):
@@ -28,21 +20,26 @@ def _mock_alerts(plant_id: str, p50: list, hours: list):
                 "type": "success"
             })
 
-    alerts.append({
-        "hour": 17,
-        "message": f"Atmospheric uncertainty rising for {plant_id} after 17:00 — intraday update recommended before evening scheduling.",
-        "type": "info"
-    })
+    # Ensure hour 17 info alert is only added once
+    if not any(a["hour"] == 17 for a in alerts):
+        alerts.append({
+            "hour": 17,
+            "message": f"Atmospheric uncertainty rising for {plant_id} after 17:00 — intraday update recommended before evening scheduling.",
+            "type": "info"
+        })
 
     return {"alerts": alerts}
 
 
 def get_alerts(plant_id: str, p50: list, hours: list):
     """
-    Get SHAP-driven alerts from Person 3's explainability module
-    Falls back to mock if generation fails
+    Get SHAP-driven alerts from Person 3's explainability module.
+    Import is deferred inside the function so a missing/broken ML
+    dependency never prevents the FastAPI app from starting.
+    Falls back to mock if import or generation fails.
     """
     try:
+        from src.ml.explainability.alerts import generate_alerts as ml_generate_alerts
         return ml_generate_alerts(plant_id, p50, hours)
     except Exception as e:
         print(f"Alert generation error: {e} — falling back to mock")
