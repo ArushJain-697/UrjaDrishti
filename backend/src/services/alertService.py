@@ -1,9 +1,16 @@
 import numpy as np
+import sys
+import os
 
-# Once Person 3 finishes, uncomment this
-# from src.ml.explainability.alerts import generate_alerts as ml_alerts
+# Add backend path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import Person 3's actual alert generation
+from ml.explainability.alerts import generate_alerts as ml_generate_alerts
+
 
 def _mock_alerts(plant_id: str, p50: list, hours: list):
+    """Fallback mock alerts if ml_generate_alerts fails"""
     alerts = []
     avg = np.mean([v for v in p50 if v > 0]) if any(v > 0 for v in p50) else 0
 
@@ -31,9 +38,12 @@ def _mock_alerts(plant_id: str, p50: list, hours: list):
 
 
 def get_alerts(plant_id: str, p50: list, hours: list):
+    """
+    Get SHAP-driven alerts from Person 3's explainability module
+    Falls back to mock if generation fails
+    """
     try:
-        # return ml_alerts(plant_id, p50, hours)
-        return _mock_alerts(plant_id, p50, hours)
+        return ml_generate_alerts(plant_id, p50, hours)
     except Exception as e:
-        print(f"Alerts error: {e} — falling back to mock")
+        print(f"Alert generation error: {e} — falling back to mock")
         return _mock_alerts(plant_id, p50, hours)
