@@ -26,8 +26,8 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Data — too large for git
-data/*.csv
+# Data
+# data/*.csv  <-- Commented out to allow Person 1's dataset push
 !data/.gitkeep
 # Jupyter
 .ipynb_checkpoints/

@@ -27,14 +27,29 @@ cd frontend
 npm install
 npm run dev
 
-## Data
+## Data Pipeline
 
-Feature matrix CSV shared via Google Drive: [LINK HERE]
-Place it at: data/feature_matrix_final.csv
+The physics-informed synthetic datasets are generated using the scripts in `backend/scripts/data_pipeline/`. The ML models rely on these datasets.
+
+To regenerate the data or edge-case stress scenarios from scratch:
+```bash
+cd backend/scripts/data_pipeline
+python run_day1_generation.py
+python run_day2_physics.py
+python run_day3_nwp.py
+python run_day4_stress.py
+```
+All generated datasets (`feature_matrix_final.csv`, `stress_*.csv`) will be saved directly to the root `data/` folder.
+
+To verify the physics and data formatting rules, run:
+```bash
+cd backend/scripts/data_pipeline
+python verify_day4_stress.py
+```
 
 ## Team
 
-Person 1 — Data & Physics: data/
+Person 1 — Data & Physics: backend/src/ml/data_pipeline/ & data/
 Person 2 — Forecasting Model: backend/src/ml/forecasting/
 Person 3 — Explainability & Reconciliation: backend/src/ml/explainability/
 Person 4 — Evaluation: backend/src/ml/evaluation/

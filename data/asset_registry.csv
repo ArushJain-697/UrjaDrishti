@@ -1,0 +1,7 @@
+plant_id,type,cluster_id,capacity_mw,latitude,longitude,altitude_m,tilt_angle_deg,azimuth_deg,technology_class,hub_height_m
+PVG_S1,solar,C1_Pavagada,150,14.5,77.2,700,15.0,180.0,crystalline_silicon,
+PVG_S2,solar,C1_Pavagada,120,14.52,77.25,710,12.0,180.0,crystalline_silicon,
+GAD_W1,wind,C2_Gadag,100,15.4,75.6,650,,,HAWT,100.0
+GAD_W2,wind,C2_Gadag,80,15.43,75.63,660,,,HAWT,90.0
+MIX_S1,solar,C1_Pavagada,90,14.48,77.18,690,18.0,175.0,crystalline_silicon,
+MIX_W1,wind,C2_Gadag,60,15.38,75.58,640,,,HAWT,85.0
