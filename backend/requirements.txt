@@ -9,3 +9,6 @@ shap
 joblib
 python-dotenv
 httpx
+scipy
+seaborn
+matplotlib
