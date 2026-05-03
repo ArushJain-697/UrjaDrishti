@@ -70,30 +70,74 @@ function windP50(plantId, hour, capacityMw) {
 }
 
 /**
- * Day-ahead: P10 = P50 - 25 - random(0..8), P90 = P50 + 25 + random(0..8), clamp >= 0.
- * Intraday: P10 = P50 - 10 - random(0..5), P90 = P50 + 10 + random(0..5).
+ * BUG 6 FIX: stress scenarios now reduce P50 (generation is physically lower),
+ * not just widen the bands. A monsoon onset or cloud ramp means less expected
+ * generation, not just more uncertainty around the same expected value.
+ *
+ * p50ReductionFactor: multiplied against the base P50.
+ *   Normal Day  → 1.0  (no change)
+ *   Cloud Ramp  → 0.65 (cloud front cuts ~35% of generation)
+ *   Monsoon     → 0.45 (deep cloud cover, ~55% reduction)
+ *   Wind Ramp   → 0.75 for solar co-located, stays high for wind (approaching rated)
+ *
+ * bandHalfFactor: widens the P10/P90 interval.
+ */
+function scenarioParams(scenario, plantType) {
+  if (!scenario || scenario === 'Normal Day') {
+    return { p50Reduction: 1.0, bandHalf: 25, randMax: 8 }
+  }
+  if (scenario === 'Cloud Ramp Event') {
+    return {
+      p50Reduction: plantType === 'solar' ? 0.65 : 1.0,
+      bandHalf: 36,
+      randMax: 12,
+    }
+  }
+  if (scenario === 'Monsoon Onset') {
+    return {
+      p50Reduction: plantType === 'solar' ? 0.45 : 0.85,
+      bandHalf: 42,
+      randMax: 14,
+    }
+  }
+  if (scenario === 'Wind Ramp') {
+    return {
+      // wind plants approach rated output, solar unaffected
+      p50Reduction: plantType === 'wind' ? 1.15 : 1.0,
+      bandHalf: 38,
+      randMax: 13,
+    }
+  }
+  return { p50Reduction: 1.0, bandHalf: 25, randMax: 8 }
+}
+
+/**
  * @param {string} plantId
- * @param {{ mode: 'dayahead' | 'intraday', stressMultiplier?: number }} opts
+ * @param {{ mode: 'dayahead' | 'intraday', scenario?: string }} opts
  */
 function buildSeries(plantId, opts) {
   const { capacityMw, type } = plantMeta(plantId)
-  const stress = opts.stressMultiplier ?? 1
-  const baseHalf = opts.mode === 'intraday' ? 10 : 25
-  const randMax = opts.mode === 'intraday' ? 5 : 8
+  const scenario = opts.scenario ?? 'Normal Day'
+  const { p50Reduction, bandHalf, randMax } =
+    opts.mode === 'intraday'
+      ? { p50Reduction: 1.0, bandHalf: 10, randMax: 5 }  // intraday always normal
+      : scenarioParams(scenario, type)
 
-  const p50 = HOURS.map((h) =>
-    type === 'solar' ? solarP50(h, capacityMw) : windP50(plantId, h, capacityMw)
-  )
+  // BUG 6 FIX: p50 is now reduced for stress scenarios, not just bands widened
+  const p50 = HOURS.map((h) => {
+    const base =
+      type === 'solar' ? solarP50(h, capacityMw) : windP50(plantId, h, capacityMw)
+    // clamp so wind ramp doesn't exceed capacity
+    return Math.min(capacityMw, Math.max(0, base * p50Reduction))
+  })
 
   const p10 = HOURS.map((h, i) => {
     const r = detRandInt(plantId, h, 11, randMax)
-    const low = baseHalf * stress + r
-    return Math.max(0, p50[i] - low)
+    return Math.max(0, p50[i] - (bandHalf + r))
   })
   const p90 = HOURS.map((h, i) => {
     const r = detRandInt(plantId, h, 19, randMax)
-    const high = baseHalf * stress + r
-    return Math.max(0, p50[i] + high)
+    return Math.min(capacityMw, p50[i] + (bandHalf + r))
   })
 
   return {
@@ -105,21 +149,12 @@ function buildSeries(plantId, opts) {
   }
 }
 
-/** @param {string} scenario */
-function scenarioStressMultiplier(scenario) {
-  if (!scenario || scenario === 'Normal Day') return 1
-  return 1.45
-}
-
 export function mockForecast(plantId, scenario = 'Normal Day') {
-  return buildSeries(plantId, {
-    mode: 'dayahead',
-    stressMultiplier: scenarioStressMultiplier(scenario),
-  })
+  return buildSeries(plantId, { mode: 'dayahead', scenario })
 }
 
 export function mockIntradayForecast(plantId) {
-  return buildSeries(plantId, { mode: 'intraday', stressMultiplier: 1 })
+  return buildSeries(plantId, { mode: 'intraday', scenario: 'Normal Day' })
 }
 
 export function mockAlerts() {
@@ -182,11 +217,6 @@ export function formatMw(value) {
   return n.toFixed(1)
 }
 
-/**
- * @param {string} plantId
- * @param {number} hoursOfActuals
- * @param {string} [scenario]
- */
 function tryMockForecast(plantId, scenario) {
   try {
     return { data: mockForecast(plantId, scenario), mockError: null }
@@ -217,10 +247,6 @@ export async function fetchForecast(plantId, hoursOfActuals = 0, scenario = 'Nor
   }
 }
 
-/**
- * @param {string} plantId
- * @param {number[]} actuals
- */
 export async function fetchIntradayForecast(plantId, actuals) {
   try {
     const { data } = await client.post('/api/forecast/intraday', {
@@ -235,11 +261,6 @@ export async function fetchIntradayForecast(plantId, actuals) {
   }
 }
 
-/**
- * @param {string} plantId
- * @param {number[]} p50
- * @param {number[]} hours
- */
 function tryMockAlerts() {
   try {
     return { data: mockAlerts(), mockError: null }
@@ -271,9 +292,14 @@ function tryMockReconciled() {
   }
 }
 
-export async function fetchReconciled() {
+// BUG 5 FIX: accepts cluster param so when Person 3's real API returns only
+// the requested cluster's data, we pass it correctly. The mock ignores it
+// and returns all clusters which is fine for development.
+export async function fetchReconciled(cluster) {
   try {
-    const { data } = await client.get('/api/reconciled/')
+    const { data } = await client.get('/api/reconciled/', {
+      params: cluster ? { cluster } : undefined,
+    })
     return { data, usedFallback: false, error: null }
   } catch (error) {
     const { data, mockError } = tryMockReconciled()

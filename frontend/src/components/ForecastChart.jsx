@@ -15,9 +15,7 @@ function ChartTooltip({ active, payload, label, lineColor = '#3b82f6' }) {
   if (!active || !payload?.length) return null
   const row = payload[0]?.payload
   if (!row) return null
-  const p50 = row.p50
-  const p10 = row.p10
-  const p90 = row.p90
+  const { p50, p10, p90 } = row
   const w = p90 - p10
   const h = Number(label)
   const hh = String(h).padStart(2, '0')
@@ -44,19 +42,22 @@ export default function ForecastChart({
   const meta = plantMeta(plantId)
   const lineColor = meta.type === 'wind' ? '#a78bfa' : '#3b82f6'
   const bandFill =
-    meta.type === 'wind' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(59, 130, 246, 0.2)'
+    meta.type === 'wind' ? 'rgba(167, 139, 250, 0.18)' : 'rgba(59, 130, 246, 0.18)'
+  // BUG 3 FIX: chart background colour used to erase below p10 in the band
+  const chartBg = '#1e2130'
 
+  // BUG 3 FIX: data only needs p10, p50, p90 — no more stacking helpers
   const data = forecast.hours.map((h, i) => ({
     hour: h,
     p50: forecast.p50[i],
     p10: forecast.p10[i],
     p90: forecast.p90[i],
-    p10base: forecast.p10[i],
-    bandWidth: Math.max(0, forecast.p90[i] - forecast.p10[i]),
   }))
 
   return (
-    <div className={`h-[320px] w-full rounded-xl border border-[#2a2d3e] bg-[#1e2130] p-2 ${className}`}>
+    <div
+      className={`h-[320px] w-full rounded-xl border border-[#2a2d3e] bg-[#1e2130] p-2 ${className}`}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
           <CartesianGrid stroke="#2a2d3e" strokeOpacity={0.5} vertical={false} />
@@ -86,21 +87,29 @@ export default function ForecastChart({
             content={(tipProps) => <ChartTooltip {...tipProps} lineColor={lineColor} />}
             cursor={{ stroke: '#2a2d3e', strokeOpacity: 0.6 }}
           />
+
+          {/*
+            BUG 3 FIX: Correct band rendering.
+            1. Draw p90 area filled from 0 up to p90 with band colour.
+            2. Draw p10 area filled from 0 up to p10 with chart background colour,
+               which paints over the lower portion and leaves only the p10→p90 band visible.
+            3. Draw the p50 line on top.
+            This avoids the stacked-Area hack that caused the band to visually
+            extend to zero when p10 was near 0.
+          */}
           <Area
             type="monotone"
-            dataKey="p10base"
-            stackId="band"
+            dataKey="p90"
             stroke="none"
-            fill="transparent"
+            fill={bandFill}
             isAnimationActive
             animationDuration={800}
           />
           <Area
             type="monotone"
-            dataKey="bandWidth"
-            stackId="band"
+            dataKey="p10"
             stroke="none"
-            fill={bandFill}
+            fill={chartBg}
             isAnimationActive
             animationDuration={800}
           />
@@ -113,6 +122,7 @@ export default function ForecastChart({
             isAnimationActive
             animationDuration={800}
           />
+
           {typeof intradayNowHour === 'number' ? (
             <ReferenceLine
               x={intradayNowHour}

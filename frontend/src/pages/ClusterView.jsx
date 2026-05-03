@@ -106,6 +106,7 @@ export default function ClusterView() {
     })
   }, [forecasts, plantIds])
 
+  // BUG 2 FIX: renamed from 't' to 'tab' to avoid shadowing the t() translation function
   const tabs = [
     { id: 'A', label: t('clusterA') },
     { id: 'B', label: t('clusterB') },
@@ -126,19 +127,20 @@ export default function ClusterView() {
         <CachedDataNotice key={cacheNoticeKey} />
       ) : null}
 
+      {/* BUG 2 FIX: map variable renamed from 't' to 'tab' throughout */}
       <div className="flex gap-2 border-b border-[#2a2d3e]">
-        {tabs.map((t) => (
+        {tabs.map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            onClick={() => setSelectedCluster(t.id)}
+            onClick={() => setSelectedCluster(tab.id)}
             className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
-              selectedCluster === t.id
+              selectedCluster === tab.id
                 ? 'border-[#3b82f6] text-[#e8eaf0]'
                 : 'border-transparent text-[#8b8fa8] hover:text-[#e8eaf0]'
             }`}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>

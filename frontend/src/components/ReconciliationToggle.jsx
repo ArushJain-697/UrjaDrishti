@@ -14,14 +14,18 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
   const [contentOpacity, setContentOpacity] = useState(1)
   const mintTransitionSkip = useRef(true)
 
+  // BUG 5 FIX: cluster added to dependency array so we re-fetch when the
+  // cluster prop changes. When Person 3's real API returns only the requested
+  // cluster's data (instead of all clusters like the mock does), this ensures
+  // we never show stale reconciliation data from the previous cluster.
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const res = await fetchReconciled()
+    const res = await fetchReconciled(cluster)
     setPayload(res.data)
     setError(res.error)
     setLoading(false)
-  }, [])
+  }, [cluster])
 
   useEffect(() => {
     load()

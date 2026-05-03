@@ -16,12 +16,6 @@ const Icon = {
   info: Info,
 }
 
-const ALERT_TEXT_KEYS = {
-  warning: 'holdReserve',
-  success: 'safeToSchedule',
-  info: 'highUncertainty',
-}
-
 export default function AlertPanel({ plantId, p50, hours }) {
   const { t } = useLanguage()
   const [alerts, setAlerts] = useState([])
@@ -104,8 +98,9 @@ export default function AlertPanel({ plantId, p50, hours }) {
                       <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
                         {String(a.hour).padStart(2, '0')}:00
                       </p>
+                      {/* BUG 1 FIX: use a.message from API/mock, not a translated generic key */}
                       <p className="mt-1 text-[13px] leading-relaxed text-[#e8eaf0]">
-                        {t(ALERT_TEXT_KEYS[a.type] || 'highUncertainty')}
+                        {a.message}
                       </p>
                     </div>
                   </div>

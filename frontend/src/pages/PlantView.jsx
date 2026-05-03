@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
 import {
   fetchForecast,
@@ -49,6 +49,11 @@ export default function PlantView() {
   const [isIntradayLoading, setIsIntradayLoading] = useState(false)
   const [activeScenario, setActiveScenario] = useState('Normal Day')
   const [lastUpdated, setLastUpdated] = useState(null)
+
+  // BUG 4 FIX: keep a stable ref to the original day-ahead forecast so that
+  // repeated intraday clicks always use the same 6 actuals and don't compound drift.
+  const dayAheadRef = useRef(null)
+
   const scenarios = useMemo(
     () => [
       { value: 'Normal Day', label: t('normalDay') },
@@ -69,6 +74,8 @@ export default function PlantView() {
     setForecastError(null)
     const res = await fetchForecast(selectedPlant, 0, activeScenario)
     setRawForecast(res.data)
+    // BUG 4 FIX: store original day-ahead result in ref for intraday actuals
+    dayAheadRef.current = res.data
     setForecastUsedFallback(res.usedFallback)
     setForecastError(res.error)
     setLastUpdated(new Date())
@@ -85,9 +92,12 @@ export default function PlantView() {
   }, [loadForecast])
 
   const onIntraday = async () => {
-    if (!rawForecast?.p50?.length) return
+    // BUG 4 FIX: always slice actuals from the original day-ahead ref,
+    // not from rawForecast which may already be a previous intraday result.
+    const sourceForActuals = dayAheadRef.current ?? rawForecast
+    if (!sourceForActuals?.p50?.length) return
     setIsIntradayLoading(true)
-    const actuals = rawForecast.p50.slice(0, 6)
+    const actuals = sourceForActuals.p50.slice(0, 6)
     const res = await fetchIntradayForecast(selectedPlant, actuals)
     setRawForecast(res.data)
     setForecastUsedFallback(res.usedFallback)
