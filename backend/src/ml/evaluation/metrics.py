@@ -332,24 +332,76 @@ def get_results() -> dict:
     Called by evaluationService.py.
     Returns evaluation results in the shape the API / dashboard expects.
 
-    TODO (Day 3): Replace mock below with:
-        forecast_df = load_test_forecasts()   # Person 2's output
-        return evaluate(forecast_df, plant_type_map=PLANT_TYPE_MAP)
+    Day 2: Tries to load real baseline results from Person 1's data.
+           Falls back to static mock if data file not found yet.
+
+    Day 3 TODO: Uncomment the model block once Person 2's forecast CSV exists:
+        forecast_df = pd.read_csv("data/test_forecasts.csv")
+        model_evals = evaluate(forecast_df, plant_type_map=PLANT_TYPE_MAP)
     """
-    return {
-        "baselines": {
+    import os
+    from src.ml.evaluation.baselines import run_all_baselines
+
+    # ── Try real baselines first ─────────────────────────────────────────
+    DATA_PATH = "data/synthetic_features.csv"   # Person 1's deliverable
+    baseline_results = None
+
+    if os.path.exists(DATA_PATH):
+        try:
+            baseline_results = run_all_baselines(DATA_PATH)
+        except Exception as e:
+            print(f"[get_results] Baseline run failed: {e} — using mock")
+
+    # ── Format baselines for API ─────────────────────────────────────────
+    def _fmt(b):
+        """Extract solar/wind nMAE and CRPS from a baseline result dict."""
+        if b is None:
+            return {"nmae_solar": None, "nmae_wind": None, "crps": None}
+        return {
+            "nmae_solar": b.get("solar_summary", {}).get("nmae"),
+            "nmae_wind" : b.get("wind_summary",  {}).get("nmae"),
+            "crps"      : b.get("overall",        {}).get("crps"),
+        }
+
+    if baseline_results:
+        baselines = {
+            "persistence"   : _fmt(baseline_results["persistence"]),
+            "climatological": _fmt(baseline_results["climatological"]),
+            "raw_nwp"       : _fmt(baseline_results["raw_nwp"]),
+        }
+    else:
+        # Static mock — used when Person 1's data file is not yet available
+        baselines = {
             "persistence":    {"nmae_solar": 0.21, "nmae_wind": 0.24, "crps": 0.33},
             "climatological": {"nmae_solar": 0.17, "nmae_wind": 0.20, "crps": 0.29},
             "raw_nwp":        {"nmae_solar": 0.15, "nmae_wind": 0.18, "crps": 0.26},
-        },
-        "model": {
-            "nmae_solar": None,  # filled Day 3 when Person 2's model is ready
-            "nmae_wind":  None,
-            "crps":       None,
-        },
-        "improvement_over_persistence": {
-            "nmae_solar_pct": None,
-            "nmae_wind_pct":  None,
-            "crps_pct":       None,
-        },
+        }
+
+    # ── Model results (Day 3 — filled when Person 2 is ready) ────────────
+    # TODO Day 3: Replace None values below with real model evaluation
+    # forecast_df = pd.read_csv("data/test_forecasts.csv")
+    # model_evals = evaluate(forecast_df, plant_type_map=PLANT_TYPE_MAP)
+    model = {
+        "nmae_solar": None,
+        "nmae_wind" : None,
+        "crps"      : None,
+    }
+
+    # ── Compute improvement % if both model and persistence are available ─
+    def _improvement_pct(model_val, baseline_val):
+        if model_val is None or baseline_val is None or baseline_val == 0:
+            return None
+        return round((baseline_val - model_val) / baseline_val * 100, 1)
+
+    p = baselines["persistence"]
+    improvement = {
+        "nmae_solar_pct": _improvement_pct(model["nmae_solar"], p["nmae_solar"]),
+        "nmae_wind_pct" : _improvement_pct(model["nmae_wind"],  p["nmae_wind"]),
+        "crps_pct"      : _improvement_pct(model["crps"],       p["crps"]),
+    }
+
+    return {
+        "baselines"                 : baselines,
+        "model"                     : model,
+        "improvement_over_persistence": improvement,
     }
