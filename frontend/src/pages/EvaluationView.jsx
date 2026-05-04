@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BarChart2, Info, TrendingUp } from 'lucide-react'
+import { BarChart2, ClipboardList, Info, TrendingUp } from 'lucide-react'
 import { fetchEvaluation } from '../api/client'
 import StatCard from '../components/StatCard.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
 import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
+import ForecastLedger from '../components/ForecastLedger.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 
 function fmtMetric(x) {
@@ -27,6 +28,7 @@ export default function EvaluationView() {
   const [usedFallback, setUsedFallback] = useState(false)
   const [error, setError] = useState(null)
   const [cacheNoticeKey, setCacheNoticeKey] = useState(0)
+  const [activeTab, setActiveTab] = useState('metrics')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -108,141 +110,175 @@ export default function EvaluationView() {
         </div>
       </div>
 
-      {imp ? (
-        <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <StatCard
-            title={t('solarImprovement')}
-            value={imp.nmae_solar_pct != null ? `${imp.nmae_solar_pct}%` : '—'}
-            subtitle={t('vsPersistence')}
-            className="border-[#22c55e]/25 bg-[#22c55e]/8"
-            valueClassName="text-[#22c55e]"
-            icon={TrendingUp}
-          />
-          <StatCard
-            title={t('windImprovement')}
-            value={imp.nmae_wind_pct != null ? `${imp.nmae_wind_pct}%` : '—'}
-            subtitle={t('vsPersistence')}
-            className="border-[#22c55e]/25 bg-[#22c55e]/8"
-            valueClassName="text-[#22c55e]"
-            icon={TrendingUp}
-          />
-          <StatCard
-            title={t('crpsImprovement')}
-            value={imp.crps_pct != null ? `${imp.crps_pct}%` : '—'}
-            subtitle={t('vsPersistence')}
-            className="border-[#22c55e]/25 bg-[#22c55e]/8"
-            valueClassName="text-[#22c55e]"
-            icon={TrendingUp}
-          />
-        </div>
-      ) : null}
+      {/* ── Tab switcher ─────────────────────────────────────────────────── */}
+      <div className="mt-6 flex gap-1 rounded-xl border border-line bg-hover-bg p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('metrics')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            activeTab === 'metrics'
+              ? 'bg-surface-bg text-main-text shadow-sm'
+              : 'text-muted-text hover:text-main-text'
+          }`}
+        >
+          <BarChart2 className="h-4 w-4" />
+          Performance Metrics
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('ledger')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            activeTab === 'ledger'
+              ? 'bg-surface-bg text-main-text shadow-sm'
+              : 'text-muted-text hover:text-main-text'
+          }`}
+        >
+          <ClipboardList className="h-4 w-4" />
+          Forecast Ledger
+        </button>
+      </div>
 
-      <div className="mt-8 overflow-x-auto rounded-xl border border-line bg-hover-bg">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
-          <thead>
-            <tr className="bg-surface-bg text-left text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
-              <th className="border-b border-line px-4 py-3">{t('model')}</th>
-              <th className="border-b border-line px-4 py-3">{t('nmaeSolar')}</th>
-              <th className="border-b border-line px-4 py-3">{t('nmaeWind')}</th>
-              <th className="border-b border-line px-4 py-3">CRPS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const src = r.key === 'model' ? model : baselines?.[r.key]
-              const isBest = r.highlight
-              return (
-                <tr
-                  key={r.key}
-                  className={`border-b border-line transition-colors hover:bg-[#232636]/80 ${
-                    isBest ? 'bg-[#22c55e]/6' : ''
-                  }`}
-                >
-                  <td
-                    className={`px-4 py-3 font-medium ${
-                      isBest ? 'text-[#22c55e]' : 'text-main-text'
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {r.name}
-                      {r.headerBadge ? (
-                        <span className="rounded bg-[#22c55e]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#22c55e]">
-                          {r.headerBadge}
-                        </span>
-                      ) : null}
-                    </span>
-                  </td>
-                  <td className={`px-4 py-3 tabular-nums ${r.rowClass}`}>
-                    <div>{val(src, 'nmae_solar')}</div>
-                    {isBest && imp ? (
-                      <div
-                        className="mt-1 text-[11px]"
-                        style={{ color: improvementColor(imp.nmae_solar_pct) }}
-                      >
-                        ▼ {imp.nmae_solar_pct}% {t('vsPersistence')}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className={`px-4 py-3 tabular-nums ${r.rowClass}`}>
-                    <div>{val(src, 'nmae_wind')}</div>
-                    {isBest && imp ? (
-                      <div
-                        className="mt-1 text-[11px]"
-                        style={{ color: improvementColor(imp.nmae_wind_pct) }}
-                      >
-                        ▼ {imp.nmae_wind_pct}% {t('vsPersistence')}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className={`px-4 py-3 tabular-nums ${r.rowClass}`}>
-                    <div>{val(src, 'crps')}</div>
-                    {isBest && imp ? (
-                      <div
-                        className="mt-1 text-[11px]"
-                        style={{ color: improvementColor(imp.crps_pct) }}
-                      >
-                        ▼ {imp.crps_pct}% {t('vsPersistence')}
-                      </div>
-                    ) : null}
-                  </td>
+      {activeTab === 'metrics' && (
+        <>
+          {imp ? (
+            <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <StatCard
+                title={t('solarImprovement')}
+                value={imp.nmae_solar_pct != null ? `${imp.nmae_solar_pct}%` : '—'}
+                subtitle={t('vsPersistence')}
+                className="border-[#22c55e]/25 bg-[#22c55e]/8"
+                valueClassName="text-[#22c55e]"
+                icon={TrendingUp}
+              />
+              <StatCard
+                title={t('windImprovement')}
+                value={imp.nmae_wind_pct != null ? `${imp.nmae_wind_pct}%` : '—'}
+                subtitle={t('vsPersistence')}
+                className="border-[#22c55e]/25 bg-[#22c55e]/8"
+                valueClassName="text-[#22c55e]"
+                icon={TrendingUp}
+              />
+              <StatCard
+                title={t('crpsImprovement')}
+                value={imp.crps_pct != null ? `${imp.crps_pct}%` : '—'}
+                subtitle={t('vsPersistence')}
+                className="border-[#22c55e]/25 bg-[#22c55e]/8"
+                valueClassName="text-[#22c55e]"
+                icon={TrendingUp}
+              />
+            </div>
+          ) : null}
+
+          <div className="mt-8 overflow-x-auto rounded-xl border border-line bg-hover-bg">
+            <table className="w-full min-w-[640px] border-collapse text-sm">
+              <thead>
+                <tr className="bg-surface-bg text-left text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
+                  <th className="border-b border-line px-4 py-3">{t('model')}</th>
+                  <th className="border-b border-line px-4 py-3">{t('nmaeSolar')}</th>
+                  <th className="border-b border-line px-4 py-3">{t('nmaeWind')}</th>
+                  <th className="border-b border-line px-4 py-3">CRPS</th>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const src = r.key === 'model' ? model : baselines?.[r.key]
+                  const isBest = r.highlight
+                  return (
+                    <tr
+                      key={r.key}
+                      className={`border-b border-line transition-colors hover:bg-[#232636]/80 ${
+                        isBest ? 'bg-[#22c55e]/6' : ''
+                      }`}
+                    >
+                      <td
+                        className={`px-4 py-3 font-medium ${
+                          isBest ? 'text-[#22c55e]' : 'text-main-text'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          {r.name}
+                          {r.headerBadge ? (
+                            <span className="rounded bg-[#22c55e]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#22c55e]">
+                              {r.headerBadge}
+                            </span>
+                          ) : null}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-3 tabular-nums ${r.rowClass}`}>
+                        <div>{val(src, 'nmae_solar')}</div>
+                        {isBest && imp ? (
+                          <div
+                            className="mt-1 text-[11px]"
+                            style={{ color: improvementColor(imp.nmae_solar_pct) }}
+                          >
+                            ▼ {imp.nmae_solar_pct}% {t('vsPersistence')}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className={`px-4 py-3 tabular-nums ${r.rowClass}`}>
+                        <div>{val(src, 'nmae_wind')}</div>
+                        {isBest && imp ? (
+                          <div
+                            className="mt-1 text-[11px]"
+                            style={{ color: improvementColor(imp.nmae_wind_pct) }}
+                          >
+                            ▼ {imp.nmae_wind_pct}% {t('vsPersistence')}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className={`px-4 py-3 tabular-nums ${r.rowClass}`}>
+                        <div>{val(src, 'crps')}</div>
+                        {isBest && imp ? (
+                          <div
+                            className="mt-1 text-[11px]"
+                            style={{ color: improvementColor(imp.crps_pct) }}
+                          >
+                            ▼ {imp.crps_pct}% {t('vsPersistence')}
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
 
-      <div className="mt-6 flex gap-3 rounded-xl border border-line bg-hover-bg p-4 text-sm leading-relaxed text-muted-text">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#10b981]" aria-hidden />
-        <p>{t('cqrCoverageDesc')}</p>
-      </div>
+          <div className="mt-6 flex gap-3 rounded-xl border border-line bg-hover-bg p-4 text-sm leading-relaxed text-muted-text">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#10b981]" aria-hidden />
+            <p>{t('cqrCoverageDesc')}</p>
+          </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-line bg-surface-bg p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
-            {t('persistence')}
-          </p>
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
-            {t('persistenceDesc')}
-          </p>
-        </div>
-        <div className="rounded-xl border border-line bg-surface-bg p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
-            {t('climatological')}
-          </p>
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
-            {t('climatologicalDesc')}
-          </p>
-        </div>
-        <div className="rounded-xl border border-line bg-surface-bg p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
-            {t('rawNwp')}
-          </p>
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
-            {t('rawNwpDesc')}
-          </p>
-        </div>
-      </div>
+          <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-line bg-surface-bg p-4">
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
+                {t('persistence')}
+              </p>
+              <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
+                {t('persistenceDesc')}
+              </p>
+            </div>
+            <div className="rounded-xl border border-line bg-surface-bg p-4">
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
+                {t('climatological')}
+              </p>
+              <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
+                {t('climatologicalDesc')}
+              </p>
+            </div>
+            <div className="rounded-xl border border-line bg-surface-bg p-4">
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
+                {t('rawNwp')}
+              </p>
+              <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
+                {t('rawNwpDesc')}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'ledger' && <ForecastLedger />}
 
       <DataNote />
     </div>

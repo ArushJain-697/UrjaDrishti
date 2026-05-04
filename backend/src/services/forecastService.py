@@ -1,8 +1,7 @@
 import numpy as np
 
-# Once Person 2 finishes, uncomment this and delete the mock
-# from src.ml.forecasting.predict import get_forecast as ml_forecast
-# from src.ml.forecasting.predict import get_intraday_forecast as ml_intraday
+from src.ml.forecasting.predict import get_forecast as ml_forecast
+from src.ml.forecasting.predict import get_intraday_forecast as ml_intraday
 
 SOLAR_PLANTS = ['PVG_S1', 'PVG_S2', 'MIX_S1']
 WIND_PLANTS  = ['GAD_W1', 'GAD_W2', 'MIX_W1']
@@ -28,8 +27,7 @@ def _mock_forecast(plant_id: str, narrow: bool = False):
 
 def get_forecast(plant_id: str, hours_of_actuals: int = 0):
     try:
-        # return ml_forecast(plant_id, hours_of_actuals)
-        return _mock_forecast(plant_id)
+        return ml_forecast(plant_id, hours_of_actuals)
     except Exception as e:
         print(f"Model error: {e} — falling back to mock")
         return _mock_forecast(plant_id)
@@ -37,8 +35,7 @@ def get_forecast(plant_id: str, hours_of_actuals: int = 0):
 
 def get_intraday_forecast(plant_id: str, actuals: list):
     try:
-        # return ml_intraday(plant_id, actuals)
-        return _mock_forecast(plant_id, narrow=True)
+        return ml_intraday(plant_id, actuals)
     except Exception as e:
         print(f"Intraday model error: {e} — falling back to mock")
         return _mock_forecast(plant_id, narrow=True)

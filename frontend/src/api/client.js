@@ -157,6 +157,34 @@ export function mockIntradayForecast(plantId) {
   return buildSeries(plantId, { mode: 'intraday', scenario: 'Normal Day' })
 }
 
+/**
+ * Generate yesterday's forecast + actuals for Forecast Replay feature.
+ * Forecast: same physical shape as today but with a slight deterministic offset
+ * (simulates that yesterday's NWP was slightly different).
+ * Actuals: forecast ± realistic deviation (−8% to +8%), with a larger miss
+ * at hours 11-13 (partial cloud event the model partially predicted).
+ */
+export function mockYesterdayData(plantId) {
+  const { capacityMw, type } = plantMeta(plantId)
+
+  const forecast = HOURS.map((h) => {
+    const base = type === 'solar' ? solarP50(h, capacityMw) : windP50(plantId, h, capacityMw)
+    // Yesterday's NWP gave slightly different signal — deterministic shift by seed 99
+    const shift = detNoise(plantId, h, 99) * 0.06  // ±6% shift
+    return Math.max(0, Math.min(capacityMw, base * (1 + shift)))
+  })
+
+  const actuals = forecast.map((f, h) => {
+    // ±8% random but deterministic noise per hour
+    const noise = detNoise(plantId, h, 77) * 0.08
+    // Hours 11-13: partial cloud event that the forecast partially missed → extra −12%
+    const cloudMiss = h >= 11 && h <= 13 && type === 'solar' ? -0.12 : 0
+    return Math.max(0, Math.min(capacityMw, f * (1 + noise + cloudMiss)))
+  })
+
+  return { forecast, actuals }
+}
+
 export function mockAlerts() {
   return {
     alerts: [

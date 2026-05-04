@@ -23,22 +23,27 @@ warnings.filterwarnings('ignore')
 _MODEL_PATH_STAGE1 = None
 
 def _get_model_path():
-    """Locate the trained stage1 model"""
+    """Locate the trained stage1 model — portable, works on any machine"""
     global _MODEL_PATH_STAGE1
     if _MODEL_PATH_STAGE1 is None:
-        # Try multiple possible locations
+        _HERE = os.path.dirname(os.path.abspath(__file__))
         candidates = [
-            './kredl_stage1.pkl',
-            '../forecasting/kredl_stage1.pkl',
-            '../../ml/forecasting/kredl_stage1.pkl',
-            '/media/surya_kiran/New Volume/hackthon/UrjaDrishti/backend/src/ml/forecasting/kredl_stage1.pkl',
+            # Relative to this file: explainability/ -> ml/ -> forecasting/
+            os.path.join(_HERE, '..', 'forecasting', 'kredl_stage1.pkl'),
+            os.path.join(_HERE, '..', '..', 'ml', 'forecasting', 'kredl_stage1.pkl'),
+            # Fallback: current working directory
+            os.path.join(os.getcwd(), 'src', 'ml', 'forecasting', 'kredl_stage1.pkl'),
+            os.path.join(os.getcwd(), 'kredl_stage1.pkl'),
         ]
         for path in candidates:
-            if os.path.exists(path):
-                _MODEL_PATH_STAGE1 = path
+            resolved = os.path.normpath(path)
+            if os.path.exists(resolved):
+                _MODEL_PATH_STAGE1 = resolved
                 break
         if _MODEL_PATH_STAGE1 is None:
-            raise FileNotFoundError("Could not locate kredl_stage1.pkl model file")
+            raise FileNotFoundError(
+                f"Could not locate kredl_stage1.pkl. Searched: {[os.path.normpath(c) for c in candidates]}"
+            )
     return _MODEL_PATH_STAGE1
 
 
@@ -215,11 +220,27 @@ class SHAPExplainer:
         print(f"Loading model from: {model_path}")
         
         import joblib
-        self.model = joblib.load(model_path)
-        print(f"✓ Model loaded: {type(self.model)}")
+        loaded = joblib.load(model_path)
+        print(f"✓ Model loaded: {type(loaded)}")
         
-        # Initialize SHAP TreeExplainer
-        self.explainer = shap.TreeExplainer(self.model)
+        # SHAP TreeExplainer only supports raw tree models (LGBMRegressor),
+        # not the MAPIE wrapper. Unwrap ConformalizedQuantileRegressor → inner LightGBM.
+        # Structure: ConformalizedQuantileRegressor
+        #              ._mapie_quantile_regressor  (_MapieQuantileRegressor)
+        #                .estimators_[1]           (LGBMRegressor — P50 model)
+        lgbm_model = loaded
+        if hasattr(loaded, '_mapie_quantile_regressor'):
+            inner = loaded._mapie_quantile_regressor
+            if hasattr(inner, 'estimators_') and inner.estimators_:
+                lgbm_model = inner.estimators_[1]  # P50 LightGBM model
+                print(f"✓ Unwrapped MAPIE → {type(lgbm_model)}")
+        elif hasattr(loaded, 'estimators_') and loaded.estimators_:
+            lgbm_model = loaded.estimators_[1]
+        
+        self.model = lgbm_model
+        
+        # Initialize SHAP TreeExplainer on the raw LightGBM model
+        self.explainer = shap.TreeExplainer(lgbm_model)
         print(f"✓ SHAP TreeExplainer initialized")
         
         self.feature_cols = FEATURE_COLS

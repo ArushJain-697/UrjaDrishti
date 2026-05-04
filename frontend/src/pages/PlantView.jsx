@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { History, Loader2, RefreshCw } from 'lucide-react'
 import {
   fetchForecast,
   fetchIntradayForecast,
   formatMw,
+  mockYesterdayData,
   plantMeta,
 } from '../api/client'
 import PlantSelector from '../components/PlantSelector.jsx'
@@ -52,6 +53,7 @@ export default function PlantView() {
   const [activeScenario, setActiveScenario] = useState('Normal Day')
   const [lastUpdated, setLastUpdated] = useState(null)
   const [alertsData, setAlertsData] = useState([])
+  const [showYesterday, setShowYesterday] = useState(false)
 
   // BUG 4 FIX: keep a stable ref to the original day-ahead forecast so that
   // repeated intraday clicks always use the same 6 actuals and don't compound drift.
@@ -189,6 +191,17 @@ export default function PlantView() {
             p10={displayForecast?.p10 ?? []}
             p90={displayForecast?.p90 ?? []}
           />
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowYesterday((v) => !v)}
+              disabled={!displayForecast}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium text-muted-text transition-all duration-200 hover:border-[#10b981] hover:text-[#10b981] disabled:opacity-40"
+            >
+              <History className="h-3.5 w-3.5" aria-hidden />
+              {showYesterday ? "Hide Yesterday's Performance" : "Show Yesterday's Performance"}
+            </button>
+          </div>
           <div className="relative mt-4">
             {displayForecast ? (
               <div className={isLoading ? 'opacity-40 transition-opacity' : 'opacity-100'}>
@@ -196,6 +209,8 @@ export default function PlantView() {
                   forecast={displayForecast}
                   plantId={selectedPlant}
                   intradayNowHour={intradayNowHour}
+                  yesterdayForecast={showYesterday ? mockYesterdayData(selectedPlant).forecast : null}
+                  yesterdayActuals={showYesterday ? mockYesterdayData(selectedPlant).actuals : null}
                 />
               </div>
             ) : (
