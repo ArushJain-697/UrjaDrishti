@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Bell, CheckCircle, Info } from 'lucide-react'
+import { AlertTriangle, Bell, CheckCircle, Info, Wrench } from 'lucide-react'
 import { fetchAlerts } from '../api/client'
 import LoadingSpinner from './LoadingSpinner'
 import { useLanguage } from '../context/LanguageContext.jsx'
@@ -8,12 +8,21 @@ const border = {
   warning: 'border-l-[#f59e0b]',
   success: 'border-l-[#22c55e]',
   info: 'border-l-[#10b981]',
+  hardware_anomaly: 'border-l-[#f97316]',
 }
 
 const Icon = {
   warning: AlertTriangle,
   success: CheckCircle,
   info: Info,
+  hardware_anomaly: Wrench,
+}
+
+const iconColor = {
+  warning: 'text-[#f59e0b]',
+  success: 'text-[#22c55e]',
+  info: 'text-[#10b981]',
+  hardware_anomaly: 'text-[#f97316]',
 }
 
 export default function AlertPanel({ plantId, p50, hours, onAlertsLoaded }) {
@@ -86,13 +95,7 @@ export default function AlertPanel({ plantId, p50, hours, onAlertsLoaded }) {
                 >
                   <div className="flex gap-3 p-3">
                     <I
-                      className={`mt-0.5 h-4 w-4 shrink-0 ${
-                        a.type === 'warning'
-                          ? 'text-[#f59e0b]'
-                          : a.type === 'success'
-                            ? 'text-[#22c55e]'
-                            : 'text-[#10b981]'
-                      }`}
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${iconColor[a.type] ?? iconColor.info}`}
                       aria-hidden
                     />
                     <div className="min-w-0 flex-1">
