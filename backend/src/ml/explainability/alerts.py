@@ -4,6 +4,9 @@ Day 1: SHAP-based alert template system
 - Initialize SHAP explainer on toy LightGBM
 - Define feature buckets and alert templates
 - Generate human-readable alerts based on SHAP feature importance
+
+FIX: generate_alerts() now emits selective, meaningful alerts (≤5 per call)
+instead of one alert per hour. Duplicate hour-17 entries are deduplicated.
 """
 
 import shap
@@ -67,18 +70,18 @@ FEATURE_BUCKETS = {
 # ============================================================
 class ShapExplainer:
     """SHAP explainer initialized once on toy model"""
-    
+
     def __init__(self):
         """Create and train toy LightGBM model for SHAP"""
         np.random.seed(42)
-        
+
         # Generate synthetic training data (24 hours × 30 days = 720 samples)
         n_samples = 720
         feature_names = [
             'cloud_modification_factor', 'wind_speed', 'temperature',
             'irradiance', 'humidity', 'time_of_day'
         ]
-        
+
         # Create realistic-ish correlation structure
         X = pd.DataFrame({
             'cloud_modification_factor': np.random.uniform(0.2, 1.0, n_samples),
@@ -88,7 +91,7 @@ class ShapExplainer:
             'humidity': np.random.uniform(20, 95, n_samples),
             'time_of_day': np.sin(np.linspace(0, 4*np.pi, n_samples))  # Daily cycle
         })
-        
+
         # Target: weighted combination
         y = (
             X['cloud_modification_factor'] * 400 +
@@ -97,7 +100,7 @@ class ShapExplainer:
             X['humidity'] * -2 +
             np.random.normal(0, 50, n_samples)
         ).clip(0, 1000)
-        
+
         # Train simple LightGBM
         self.model = lgb.LGBMRegressor(
             n_estimators=50,
@@ -106,14 +109,14 @@ class ShapExplainer:
             verbose=-1
         )
         self.model.fit(X, y)
-        
+
         # Initialize SHAP explainer
         self.explainer = shap.TreeExplainer(self.model)
         self.reference_X = X  # For base value computation
         self.feature_names = feature_names
-        
+
         print("✓ SHAP Explainer initialized with toy LightGBM model")
-    
+
     def get_shap_values(self, X: pd.DataFrame) -> np.ndarray:
         """Compute SHAP values for given features"""
         return self.explainer.shap_values(X)
@@ -133,8 +136,8 @@ def _get_explainer():
 # ============================================================
 # ALERT GENERATION LOGIC
 # ============================================================
-def _get_top_drivers(shap_values: np.ndarray, 
-                     feature_names: List[str], 
+def _get_top_drivers(shap_values: np.ndarray,
+                     feature_names: List[str],
                      top_k: int = 3) -> List[Dict]:
     """
     Extract top K most important features based on SHAP values
@@ -142,7 +145,7 @@ def _get_top_drivers(shap_values: np.ndarray,
     """
     abs_shap = np.abs(shap_values)
     top_indices = np.argsort(abs_shap)[-top_k:][::-1]
-    
+
     drivers = []
     for idx in top_indices:
         drivers.append({
@@ -159,14 +162,14 @@ def _build_alert_message(driver: Dict, forecast_value: float) -> str:
     """
     feature = driver['feature']
     is_positive = driver['is_positive']
-    
+
     # Check if feature exists in buckets
     if feature not in FEATURE_BUCKETS:
         return f"Feature '{feature}' affecting output"
-    
+
     bucket = FEATURE_BUCKETS[feature]
     message_key = 'positive_message' if is_positive else 'negative_message'
-    
+
     return bucket[message_key]
 
 
@@ -174,22 +177,26 @@ def generate_alerts(plant_id: str, p50: List[float], hours: List[int],
                    shap_values: Optional[np.ndarray] = None,
                    features: Optional[pd.DataFrame] = None) -> Dict:
     """
-    Generate alert messages based on SHAP feature importance
-    
+    Generate alert messages based on SHAP feature importance.
+
+    FIX: Instead of emitting one alert per hour (24+ alerts), this function
+    now identifies a small set of *meaningful* hours (peak, low-output dips,
+    evening ramp) and emits at most 5 alerts. The hour-17 evening alert is
+    added exactly once via deduplication.
+
     Args:
         plant_id: Plant identifier
         p50: List of P50 (median) forecast values
         hours: List of hour indices (0-23)
         shap_values: Optional pre-computed SHAP values
         features: Optional feature dataframe for computing SHAP on-demand
-    
+
     Returns:
         {"alerts": [{"hour": int, "message": str, "type": str}, ...]}
     """
     try:
         explainer = _get_explainer()
-        alerts = []
-        
+
         # For Day 1: mock features if not provided
         if features is None:
             features = pd.DataFrame({
@@ -200,53 +207,81 @@ def generate_alerts(plant_id: str, p50: List[float], hours: List[int],
                 'humidity': np.random.uniform(40, 80, len(hours)),
                 'time_of_day': np.sin(np.array(hours) / 12 * np.pi)
             })
-        
+
         # Compute SHAP values if not provided
         if shap_values is None:
             shap_values = explainer.get_shap_values(features)
-        
-        # Generate alerts for each hour
-        for hour_idx, (hour, p50_val) in enumerate(zip(hours, p50)):
-            hour_shap = shap_values[hour_idx]
-            
-            # Get top 3 drivers for this hour
+
+        # ── Select only meaningful hours to alert on ──────────────
+        # Rather than one alert per hour, pick:
+        #   1. The peak-output hour (success)
+        #   2. Up to 2 significant low-output hours during daytime (warning)
+        #   3. Hour 17 evening ramp alert (info) — added exactly once below
+        peak_value = max(p50) if p50 else 0
+        avg_value = float(np.mean([v for v in p50 if v > 0])) if any(v > 0 for v in p50) else 0
+
+        selected_hours: List[int] = []
+
+        # Peak hour
+        if peak_value > 0:
+            peak_idx = p50.index(peak_value)
+            selected_hours.append(peak_idx)
+
+        # Low-output warning hours (only during typical generation window, 6-20h)
+        warning_count = 0
+        for i, (h, v) in enumerate(zip(hours, p50)):
+            if warning_count >= 2:
+                break
+            if 6 <= h <= 20 and 0 < v < avg_value * 0.75 and i not in selected_hours:
+                selected_hours.append(i)
+                warning_count += 1
+
+        alerts = []
+        seen_hours = set()
+
+        for idx in selected_hours:
+            h = hours[idx]
+            v = p50[idx]
+            if h in seen_hours:
+                continue
+            seen_hours.add(h)
+
+            hour_shap = shap_values[idx]
             drivers = _get_top_drivers(hour_shap, explainer.feature_names, top_k=3)
-            
-            # Primary alert from strongest driver
-            if drivers:
+
+            if v == peak_value:
+                message = f"Peak generation expected at {h:02d}:00 — conditions favourable, high confidence interval"
+                alert_type = 'success'
+            elif drivers:
                 primary_driver = drivers[0]
-                message = _build_alert_message(primary_driver, p50_val)
-                
-                # Determine alert severity
-                if p50_val < 50:  # Low output
-                    alert_type = 'warning'
-                elif p50_val > 400:  # High output
-                    alert_type = 'success'
-                else:
-                    alert_type = 'info'
-                
-                # Special case: peak hour
-                if p50_val == max(p50):
-                    message = f"Peak generation expected at {hour:02d}:00 — conditions favourable, high confidence interval"
-                    alert_type = 'success'
-                
-                alerts.append({
-                    'hour': hour,
-                    'message': message,
-                    'type': alert_type,
-                    'top_drivers': [d['feature'] for d in drivers]
-                })
-        
-        # Add atmospheric uncertainty alert
-        if max(hours) >= 17:
+                message = _build_alert_message(primary_driver, v)
+                alert_type = 'warning' if v < avg_value * 0.75 else 'info'
+            else:
+                continue
+
+            alerts.append({
+                'hour': h,
+                'message': message,
+                'type': alert_type,
+                'top_drivers': [d['feature'] for d in drivers]
+            })
+
+        # Add evening uncertainty alert at hour 17 — exactly once
+        if max(hours, default=0) >= 17 and 17 not in seen_hours:
             alerts.append({
                 'hour': 17,
-                'message': f"Atmospheric uncertainty rising for {plant_id} after 17:00 — intraday update recommended before evening scheduling",
+                'message': (
+                    f"Atmospheric uncertainty rising for {plant_id} after 17:00 "
+                    "— intraday update recommended before evening scheduling"
+                ),
                 'type': 'info'
             })
-        
+
+        # Sort by hour for display
+        alerts.sort(key=lambda a: a['hour'])
+
         return {'alerts': alerts}
-    
+
     except Exception as e:
         print(f"[ERROR] Alert generation failed: {e}")
         # Graceful fallback

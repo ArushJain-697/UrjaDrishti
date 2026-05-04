@@ -112,7 +112,7 @@ export default function EvaluationView() {
         <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-3">
           <StatCard
             title={t('solarImprovement')}
-            value={`${imp.nmae_solar_pct}%`}
+            value={imp.nmae_solar_pct != null ? `${imp.nmae_solar_pct}%` : '—'}
             subtitle={t('vsPersistence')}
             className="border-[#22c55e]/25 bg-[#22c55e]/8"
             valueClassName="text-[#22c55e]"
@@ -120,7 +120,7 @@ export default function EvaluationView() {
           />
           <StatCard
             title={t('windImprovement')}
-            value={`${imp.nmae_wind_pct}%`}
+            value={imp.nmae_wind_pct != null ? `${imp.nmae_wind_pct}%` : '—'}
             subtitle={t('vsPersistence')}
             className="border-[#22c55e]/25 bg-[#22c55e]/8"
             valueClassName="text-[#22c55e]"
@@ -128,7 +128,7 @@ export default function EvaluationView() {
           />
           <StatCard
             title={t('crpsImprovement')}
-            value={`${imp.crps_pct}%`}
+            value={imp.crps_pct != null ? `${imp.crps_pct}%` : '—'}
             subtitle={t('vsPersistence')}
             className="border-[#22c55e]/25 bg-[#22c55e]/8"
             valueClassName="text-[#22c55e]"

@@ -1,6 +1,10 @@
 import logging
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env before anything else reads os.getenv()
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler

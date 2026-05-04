@@ -5,6 +5,7 @@ import numpy as np
 # from src.ml.forecasting.predict import get_intraday_forecast as ml_intraday
 
 SOLAR_PLANTS = ['PVG_S1', 'PVG_S2', 'MIX_S1']
+WIND_PLANTS  = ['GAD_W1', 'GAD_W2', 'MIX_W1']
 
 def _mock_forecast(plant_id: str, narrow: bool = False):
     hours = list(range(24))
