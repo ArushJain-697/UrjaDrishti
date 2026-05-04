@@ -38,8 +38,7 @@ from model               import (
 from evaluation import nMAE, nRMSE
 
 _HERE        = os.path.dirname(os.path.abspath(__file__))
-# _DEFAULT_CSV = os.path.join(_HERE, '..', 'data', 'feature_matrix.csv')
-_DEFAULT_CSV = os.path.join(_HERE, 'feature_matrix.csv')
+_DEFAULT_CSV = os.path.join(_HERE, '..', '..', '..', '..', 'data', 'feature_matrix_final.csv')
 # Where to write artefacts
 _OUT_DIR = os.path.join(_HERE, 'artefacts')
 os.makedirs(_OUT_DIR, exist_ok=True)
