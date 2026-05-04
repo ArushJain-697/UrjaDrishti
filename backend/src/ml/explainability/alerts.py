@@ -1,300 +1,423 @@
 """
-PERSON 3 — Explainability & Reconciliation
-Day 1: SHAP-based alert template system
-- Initialize SHAP explainer on toy LightGBM
-- Define feature buckets and alert templates
-- Generate human-readable alerts based on SHAP feature importance
-
-FIX: generate_alerts() now emits selective, meaningful alerts (≤5 per call)
-instead of one alert per hour. Duplicate hour-17 entries are deduplicated.
+PERSON 3 — Day 2: SHAP-Driven Explainability
+- Load trained Stage-1 LightGBM model from Person 2
+- Compute SHAP values for every forecast
+- Extract top 3 feature drivers per hour per plant
+- Map to natural language alert templates (8+ patterns)
+- Generate operator-facing explanations
 """
 
 import shap
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import warnings
+import os
 warnings.filterwarnings('ignore')
 
 # ============================================================
-# FEATURE BUCKET DEFINITIONS & ALERT TEMPLATES
+# MODEL LOADING
 # ============================================================
-FEATURE_BUCKETS = {
-    'cloud_modification_factor': {
-        'name': 'Cloud Cover',
-        'negative_severity': 'warning',
-        'positive_severity': 'success',
-        'negative_message': 'forecast below expected due to cloud cover',
-        'positive_message': 'clear skies support strong output'
+
+_MODEL_PATH_STAGE1 = None
+
+def _get_model_path():
+    """Locate the trained stage1 model"""
+    global _MODEL_PATH_STAGE1
+    if _MODEL_PATH_STAGE1 is None:
+        # Try multiple possible locations
+        candidates = [
+            './kredl_stage1.pkl',
+            '../forecasting/kredl_stage1.pkl',
+            '../../ml/forecasting/kredl_stage1.pkl',
+            '/media/surya_kiran/New Volume/hackthon/UrjaDrishti/backend/src/ml/forecasting/kredl_stage1.pkl',
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                _MODEL_PATH_STAGE1 = path
+                break
+        if _MODEL_PATH_STAGE1 is None:
+            raise FileNotFoundError("Could not locate kredl_stage1.pkl model file")
+    return _MODEL_PATH_STAGE1
+
+
+# ============================================================
+# FEATURE NAMES (from feature_engineering.py)
+# ============================================================
+
+FEATURE_COLS = [
+    'CMF',                    # Cloud Modification Factor (solar)
+    'power_curve_fraction',   # Wind power curve position
+    'temperature',            # Environment temperature
+    'nwp_spread',            # NWP ensemble spread
+    'capacity_mw',           # Plant capacity
+    'lat_sin', 'lat_cos',    # Geographic location (cycles)
+    'lon_sin', 'lon_cos',    # Geographic location (cycles)
+    'tilt_angle_deg',        # PV tilt
+    'hub_height_m',          # Wind hub height
+    'hour_sin', 'hour_cos',  # Time of day (cycles)
+    'doy_sin', 'doy_cos',    # Day of year (cycles)
+    'season',                # Season code
+    'plant_type_enc',        # Plant type (0=solar, 1=wind)
+]
+
+# ============================================================
+# FEATURE IMPORTANCE INTERPRETATION
+# ============================================================
+
+FEATURE_INTERPRETATION = {
+    'CMF': {
+        'name': 'Cloud Modification Factor',
+        'type': 'physics',
+        'scale': 'normalized',
+        'domain': 'solar',
+        'interpretation_high': 'clear skies, high solar irradiance',
+        'interpretation_low': 'heavy cloud cover, low irradiance',
     },
-    'wind_speed': {
-        'name': 'Wind Speed',
-        'negative_severity': 'warning',
-        'positive_severity': 'success',
-        'negative_message': 'weak wind conditions limiting generation',
-        'positive_message': 'strong wind conditions boost turbine output'
+    'power_curve_fraction': {
+        'name': 'Wind Power Curve Fraction',
+        'type': 'physics',
+        'scale': 'normalized',
+        'domain': 'wind',
+        'interpretation_high': 'strong wind, high in power curve',
+        'interpretation_low': 'weak wind, low in power curve',
     },
     'temperature': {
         'name': 'Temperature',
-        'negative_severity': 'info',
-        'positive_severity': 'info',
-        'negative_message': 'high temperature reduces PV efficiency',
-        'positive_message': 'moderate temperature supports efficiency'
+        'type': 'weather',
+        'scale': 'celsius',
+        'domain': 'both',
+        'interpretation_high': 'high temperature (PV efficiency loss)',
+        'interpretation_low': 'low temperature (PV efficiency gain)',
     },
-    'time_of_day': {
-        'name': 'Time of Day',
-        'negative_severity': 'info',
-        'positive_severity': 'success',
-        'negative_message': 'early morning or late evening limits solar generation',
-        'positive_message': 'peak solar hours drive strong output'
+    'nwp_spread': {
+        'name': 'Weather Model Uncertainty',
+        'type': 'uncertainty',
+        'scale': 'normalized',
+        'domain': 'both',
+        'interpretation_high': 'high model uncertainty',
+        'interpretation_low': 'low model uncertainty, high confidence',
     },
-    'irradiance': {
-        'name': 'Irradiance',
-        'negative_severity': 'warning',
-        'positive_severity': 'success',
-        'negative_message': 'low irradiance expected',
-        'positive_message': 'high irradiance supports peak output'
+    'hour_sin': {
+        'name': 'Hour of Day (sine)',
+        'type': 'temporal',
+        'scale': 'sine_encoded',
+        'domain': 'both',
+        'interpretation_high': 'midday (peak solar)',
+        'interpretation_low': 'early morning / late evening',
     },
-    'humidity': {
-        'name': 'Humidity',
-        'negative_severity': 'info',
-        'positive_severity': 'info',
-        'negative_message': 'high humidity may reduce generation',
-        'positive_message': 'moderate humidity supports stable output'
-    }
+    'doy_sin': {
+        'name': 'Day of Year (sine)',
+        'type': 'temporal',
+        'scale': 'sine_encoded',
+        'domain': 'both',
+        'interpretation_high': 'summer season',
+        'interpretation_low': 'winter season',
+    },
+    'season': {
+        'name': 'Season Indicator',
+        'type': 'temporal',
+        'scale': 'categorical',
+        'domain': 'both',
+        'interpretation_high': 'monsoon / monsoon transition',
+        'interpretation_low': 'post-monsoon / pre-monsoon',
+    },
 }
 
 # ============================================================
-# TOY MODEL FOR DAY 1 DEVELOPMENT
+# ALERT TEMPLATES (8+ patterns)
 # ============================================================
-class ShapExplainer:
-    """SHAP explainer initialized once on toy model"""
 
+ALERT_TEMPLATES = {
+    'high_cloud_cover': {
+        'primary_driver': 'CMF',
+        'condition': lambda shap_dict: (shap_dict.get('CMF', 0) < -0.1),
+        'template': "☁️ Heavy cloud cover limiting generation at {hour:02d}:00 — cloud modification factor is the primary negative driver (~{impact:.1f}% reduction)",
+        'type': 'warning',
+        'domain': 'solar',
+    },
+    'low_wind': {
+        'primary_driver': 'power_curve_fraction',
+        'condition': lambda shap_dict: (shap_dict.get('power_curve_fraction', 0) < -0.1),
+        'template': "🌬️ Weak wind conditions limiting turbine output at {hour:02d}:00 — positioned low in power curve (~{impact:.1f}% reduction)",
+        'type': 'warning',
+        'domain': 'wind',
+    },
+    'clear_sky_solar': {
+        'primary_driver': 'CMF',
+        'condition': lambda shap_dict: (shap_dict.get('CMF', 0) > 0.15),
+        'template': "☀️ Clear skies driving strong solar generation at {hour:02d}:00 — high cloud modification factor supports peak output (~{impact:.1f}% boost)",
+        'type': 'success',
+        'domain': 'solar',
+    },
+    'strong_wind': {
+        'primary_driver': 'power_curve_fraction',
+        'condition': lambda shap_dict: (shap_dict.get('power_curve_fraction', 0) > 0.15),
+        'template': "💨 Strong wind conditions boosting turbine output at {hour:02d}:00 — high position in power curve (~{impact:.1f}% boost)",
+        'type': 'success',
+        'domain': 'wind',
+    },
+    'high_temperature_loss': {
+        'primary_driver': 'temperature',
+        'condition': lambda shap_dict: (shap_dict.get('temperature', 0) < -0.05),
+        'template': "🌡️ High temperature reducing PV efficiency at {hour:02d}:00 — thermal loss is a secondary driver (~{impact:.1f}% reduction)",
+        'type': 'info',
+        'domain': 'solar',
+    },
+    'peak_solar_hours': {
+        'primary_driver': 'hour_sin',
+        'condition': lambda shap_dict: (shap_dict.get('hour_sin', 0) > 0.1) and (shap_dict.get('CMF', 0) > -0.05),
+        'template': "🔆 Peak solar generation window (midday) at {hour:02d}:00 — time-of-day positioning drives strong output (~{impact:.1f}% boost)",
+        'type': 'success',
+        'domain': 'solar',
+    },
+    'early_morning_evening': {
+        'primary_driver': 'hour_sin',
+        'condition': lambda shap_dict: (shap_dict.get('hour_sin', 0) < -0.1),
+        'template': "🌅 Early morning/late evening low generation at {hour:02d}:00 — time-of-day positioning limits output (~{impact:.1f}% reduction)",
+        'type': 'info',
+        'domain': 'solar',
+    },
+    'high_uncertainty': {
+        'primary_driver': 'nwp_spread',
+        'condition': lambda shap_dict: (shap_dict.get('nwp_spread', 0) < -0.08),
+        'template': "⚠️ High atmospheric uncertainty at {hour:02d}:00 — wider confidence intervals recommended (~{impact:.1f}% impact)",
+        'type': 'warning',
+        'domain': 'both',
+    },
+    'seasonal_summer': {
+        'primary_driver': 'doy_sin',
+        'condition': lambda shap_dict: (shap_dict.get('doy_sin', 0) > 0.08),
+        'template': "☀️☀️ Summer season boost for solar at {hour:02d}:00 — seasonal position drives higher insolation (~{impact:.1f}% boost)",
+        'type': 'success',
+        'domain': 'solar',
+    },
+    'monsoon_transition': {
+        'primary_driver': 'season',
+        'condition': lambda shap_dict: (shap_dict.get('season', 0) > 0.05),
+        'template': "🌧️ Monsoon/transition season with variable cloud patterns at {hour:02d}:00 — wider intervals recommended (~{impact:.1f}% impact)",
+        'type': 'info',
+        'domain': 'solar',
+    },
+}
+
+# ============================================================
+# SHAP EXPLAINER CLASS
+# ============================================================
+
+class SHAPExplainer:
+    """Loads trained model and computes SHAP values"""
+    
     def __init__(self):
-        """Create and train toy LightGBM model for SHAP"""
-        np.random.seed(42)
-
-        # Generate synthetic training data (24 hours × 30 days = 720 samples)
-        n_samples = 720
-        feature_names = [
-            'cloud_modification_factor', 'wind_speed', 'temperature',
-            'irradiance', 'humidity', 'time_of_day'
-        ]
-
-        # Create realistic-ish correlation structure
-        X = pd.DataFrame({
-            'cloud_modification_factor': np.random.uniform(0.2, 1.0, n_samples),
-            'wind_speed': np.abs(np.random.normal(8, 4, n_samples)),
-            'temperature': np.random.uniform(15, 45, n_samples),
-            'irradiance': np.random.uniform(0, 850, n_samples),
-            'humidity': np.random.uniform(20, 95, n_samples),
-            'time_of_day': np.sin(np.linspace(0, 4*np.pi, n_samples))  # Daily cycle
-        })
-
-        # Target: weighted combination
-        y = (
-            X['cloud_modification_factor'] * 400 +
-            X['wind_speed'] * 20 +
-            X['time_of_day'] * 100 +
-            X['humidity'] * -2 +
-            np.random.normal(0, 50, n_samples)
-        ).clip(0, 1000)
-
-        # Train simple LightGBM
-        self.model = lgb.LGBMRegressor(
-            n_estimators=50,
-            learning_rate=0.1,
-            max_depth=5,
-            verbose=-1
-        )
-        self.model.fit(X, y)
-
-        # Initialize SHAP explainer
+        """Load trained stage1 model and initialize SHAP explainer"""
+        model_path = _get_model_path()
+        print(f"Loading model from: {model_path}")
+        
+        import joblib
+        self.model = joblib.load(model_path)
+        print(f"✓ Model loaded: {type(self.model)}")
+        
+        # Initialize SHAP TreeExplainer
         self.explainer = shap.TreeExplainer(self.model)
-        self.reference_X = X  # For base value computation
-        self.feature_names = feature_names
-
-        print("✓ SHAP Explainer initialized with toy LightGBM model")
-
-    def get_shap_values(self, X: pd.DataFrame) -> np.ndarray:
-        """Compute SHAP values for given features"""
+        print(f"✓ SHAP TreeExplainer initialized")
+        
+        self.feature_cols = FEATURE_COLS
+    
+    def compute_shap_values(self, X: pd.DataFrame) -> np.ndarray:
+        """Compute SHAP values for the given features"""
         return self.explainer.shap_values(X)
+    
+    def get_top_drivers(self, shap_row: np.ndarray, top_k: int = 3) -> List[Tuple[str, float]]:
+        """
+        Extract top K drivers from a single SHAP row
+        Returns: [(feature_name, shap_value), ...]
+        """
+        abs_shap = np.abs(shap_row)
+        top_indices = np.argsort(abs_shap)[-top_k:][::-1]
+        return [(self.feature_cols[i], shap_row[i]) for i in top_indices]
 
 
-# Initialize globally (once per app startup)
-_shap_explainer = None
+# ============================================================
+# SINGLETON EXPLAINER INSTANCE
+# ============================================================
 
-def _get_explainer():
-    """Lazy initialization of SHAP explainer"""
-    global _shap_explainer
-    if _shap_explainer is None:
-        _shap_explainer = ShapExplainer()
-    return _shap_explainer
+_explainer = None
+
+def _get_explainer() -> SHAPExplainer:
+    """Lazy-load SHAP explainer"""
+    global _explainer
+    if _explainer is None:
+        _explainer = SHAPExplainer()
+    return _explainer
 
 
 # ============================================================
 # ALERT GENERATION LOGIC
 # ============================================================
-def _get_top_drivers(shap_values: np.ndarray,
-                     feature_names: List[str],
-                     top_k: int = 3) -> List[Dict]:
+
+def _match_template(shap_dict: Dict[str, float], plant_type: str) -> Optional[Tuple[str, Dict]]:
     """
-    Extract top K most important features based on SHAP values
-    Returns list of {feature: str, impact: float, is_positive: bool}
+    Match SHAP drivers to best-fit alert template
+    Returns: (template_name, template_dict) or None
     """
-    abs_shap = np.abs(shap_values)
-    top_indices = np.argsort(abs_shap)[-top_k:][::-1]
+    best_match = None
+    best_score = 0
+    
+    for template_name, template_def in ALERT_TEMPLATES.items():
+        # Skip if template is for different domain
+        if template_def['domain'] != 'both' and template_def['domain'] != plant_type:
+            continue
+        
+        # Check if condition is met
+        try:
+            if template_def['condition'](shap_dict):
+                # Condition matches - score based on primacy of driver
+                primary_driver = template_def['primary_driver']
+                score = abs(shap_dict.get(primary_driver, 0))
+                
+                if score > best_score:
+                    best_score = score
+                    best_match = (template_name, template_def)
+        except:
+            pass
+    
+    return best_match
 
-    drivers = []
-    for idx in top_indices:
-        drivers.append({
-            'feature': feature_names[idx],
-            'impact': float(shap_values[idx]),
-            'is_positive': shap_values[idx] > 0
-        })
-    return drivers
 
-
-def _build_alert_message(driver: Dict, forecast_value: float) -> str:
+def _generate_alert_message(template_name: str, template_def: Dict, 
+                           shap_dict: Dict[str, float], hour: int, 
+                           p50_value: float) -> str:
     """
-    Convert a SHAP driver into a plain-English alert message
+    Generate human-readable alert message from template and SHAP values
     """
-    feature = driver['feature']
-    is_positive = driver['is_positive']
-
-    # Check if feature exists in buckets
-    if feature not in FEATURE_BUCKETS:
-        return f"Feature '{feature}' affecting output"
-
-    bucket = FEATURE_BUCKETS[feature]
-    message_key = 'positive_message' if is_positive else 'negative_message'
-
-    return bucket[message_key]
+    primary_driver = template_def['primary_driver']
+    impact = abs(shap_dict.get(primary_driver, 0)) * 100  # Percent
+    
+    try:
+        message = template_def['template'].format(
+            hour=hour,
+            impact=min(impact, 50),  # Cap to reasonable looking numbers
+            p50=round(p50_value, 1),
+        )
+    except:
+        message = f"Forecast at {hour:02d}:00 influenced by {primary_driver}"
+    
+    return message
 
 
 def generate_alerts(plant_id: str, p50: List[float], hours: List[int],
-                   shap_values: Optional[np.ndarray] = None,
-                   features: Optional[pd.DataFrame] = None) -> Dict:
+                   plant_type: str = 'solar',
+                   features_df: Optional[pd.DataFrame] = None) -> Dict:
     """
-    Generate alert messages based on SHAP feature importance.
-
-    FIX: Instead of emitting one alert per hour (24+ alerts), this function
-    now identifies a small set of *meaningful* hours (peak, low-output dips,
-    evening ramp) and emits at most 5 alerts. The hour-17 evening alert is
-    added exactly once via deduplication.
-
+    Generate SHAP-driven alerts for a forecast
+    
     Args:
         plant_id: Plant identifier
-        p50: List of P50 (median) forecast values
+        p50: List of P50 forecast values (24 hours)
         hours: List of hour indices (0-23)
-        shap_values: Optional pre-computed SHAP values
-        features: Optional feature dataframe for computing SHAP on-demand
-
+        plant_type: 'solar' or 'wind'
+        features_df: Optional feature matrix (for SHAP computation)
+    
     Returns:
-        {"alerts": [{"hour": int, "message": str, "type": str}, ...]}
+        {
+            "alerts": [
+                {
+                    "hour": int,
+                    "p50": float,
+                    "message": str,
+                    "type": str,
+                    "top_drivers": [("feature", value), ...],
+                    "template": str
+                }
+            ]
+        }
     """
     try:
         explainer = _get_explainer()
-
-        # For Day 1: mock features if not provided
-        if features is None:
-            features = pd.DataFrame({
-                'cloud_modification_factor': np.random.uniform(0.3, 0.9, len(hours)),
-                'wind_speed': np.abs(np.random.normal(8, 3, len(hours))),
-                'temperature': np.random.uniform(20, 40, len(hours)),
-                'irradiance': p50,  # Use forecast as proxy for irradiance
-                'humidity': np.random.uniform(40, 80, len(hours)),
-                'time_of_day': np.sin(np.array(hours) / 12 * np.pi)
-            })
-
-        # Compute SHAP values if not provided
-        if shap_values is None:
-            shap_values = explainer.get_shap_values(features)
-
-        # ── Select only meaningful hours to alert on ──────────────
-        # Rather than one alert per hour, pick:
-        #   1. The peak-output hour (success)
-        #   2. Up to 2 significant low-output hours during daytime (warning)
-        #   3. Hour 17 evening ramp alert (info) — added exactly once below
-        peak_value = max(p50) if p50 else 0
-        avg_value = float(np.mean([v for v in p50 if v > 0])) if any(v > 0 for v in p50) else 0
-
-        selected_hours: List[int] = []
-
-        # Peak hour
-        if peak_value > 0:
-            peak_idx = p50.index(peak_value)
-            selected_hours.append(peak_idx)
-
-        # Low-output warning hours (only during typical generation window, 6-20h)
-        warning_count = 0
-        for i, (h, v) in enumerate(zip(hours, p50)):
-            if warning_count >= 2:
-                break
-            if 6 <= h <= 20 and 0 < v < avg_value * 0.75 and i not in selected_hours:
-                selected_hours.append(i)
-                warning_count += 1
-
         alerts = []
-        seen_hours = set()
-
-        for idx in selected_hours:
-            h = hours[idx]
-            v = p50[idx]
-            if h in seen_hours:
-                continue
-            seen_hours.add(h)
-
-            hour_shap = shap_values[idx]
-            drivers = _get_top_drivers(hour_shap, explainer.feature_names, top_k=3)
-
-            if v == peak_value:
-                message = f"Peak generation expected at {h:02d}:00 — conditions favourable, high confidence interval"
-                alert_type = 'success'
-            elif drivers:
-                primary_driver = drivers[0]
-                message = _build_alert_message(primary_driver, v)
-                alert_type = 'warning' if v < avg_value * 0.75 else 'info'
+        
+        # For Day 2: synthesize features if not provided
+        if features_df is None:
+            # Mock features bounded by p50
+            features_df = pd.DataFrame({
+                'CMF': np.clip(np.array(p50) / 200, 0, 1),
+                'power_curve_fraction': np.random.uniform(0, 1, len(hours)),
+                'temperature': np.random.uniform(15, 40, len(hours)),
+                'nwp_spread': np.random.uniform(0.5, 2.0, len(hours)),
+                'capacity_mw': 100,
+                'lat_sin': 0.27,
+                'lat_cos': 0.96,
+                'lon_sin': 0.97,
+                'lon_cos': 0.25,
+                'tilt_angle_deg': 18,
+                'hub_height_m': 100,
+                'hour_sin': np.sin(np.array(hours) / 12 * np.pi),
+                'hour_cos': np.cos(np.array(hours) / 12 * np.pi),
+                'doy_sin': np.sin(155 / 365 * 2 * np.pi),  # May
+                'doy_cos': np.cos(155 / 365 * 2 * np.pi),
+                'season': 1,  # 1 = summer/pre-monsoon
+                'plant_type_enc': 0 if plant_type == 'solar' else 1,
+            })
+        
+        # Ensure column order matches model
+        features_df = features_df[FEATURE_COLS]
+        
+        # Compute SHAP values
+        shap_values = explainer.compute_shap_values(features_df)
+        
+        # Generate alerts for each hour
+        for hour_idx, (hour, p50_val) in enumerate(zip(hours, p50)):
+            shap_row = shap_values[hour_idx]
+            
+            # Convert to dict for template matching
+            shap_dict = {fname: shap_row[i] for i, fname in enumerate(FEATURE_COLS)}
+            
+            # Get top 3 drivers
+            top_drivers = explainer.get_top_drivers(shap_row, top_k=3)
+            
+            # Match to best template
+            match = _match_template(shap_dict, plant_type)
+            
+            if match:
+                template_name, template_def = match
+                message = _generate_alert_message(
+                    template_name, template_def, shap_dict, hour, p50_val
+                )
+                alert_type = template_def['type']
             else:
-                continue
-
+                # Fallback: just use strongest driver
+                message = f"Forecast at {hour:02d}:00 driven by {top_drivers[0][0]}"
+                alert_type = 'info'
+                template_name = 'generic'
+            
             alerts.append({
-                'hour': h,
+                'hour': hour,
+                'p50': round(p50_val, 2),
                 'message': message,
                 'type': alert_type,
-                'top_drivers': [d['feature'] for d in drivers]
+                'template': template_name,
+                'top_drivers': [
+                    {'feature': fname, 'shap_value': round(float(val), 3)}
+                    for fname, val in top_drivers
+                ]
             })
-
-        # Add evening uncertainty alert at hour 17 — exactly once
-        if max(hours, default=0) >= 17 and 17 not in seen_hours:
-            alerts.append({
-                'hour': 17,
-                'message': (
-                    f"Atmospheric uncertainty rising for {plant_id} after 17:00 "
-                    "— intraday update recommended before evening scheduling"
-                ),
-                'type': 'info'
-            })
-
-        # Sort by hour for display
-        alerts.sort(key=lambda a: a['hour'])
-
-        return {'alerts': alerts}
-
+        
+        return {'alerts': alerts, 'status': 'success'}
+    
     except Exception as e:
         print(f"[ERROR] Alert generation failed: {e}")
-        # Graceful fallback
+        import traceback
+        traceback.print_exc()
         return {
             'alerts': [{
                 'hour': hours[0] if hours else 0,
-                'message': 'Forecast available — check dashboard for details',
-                'type': 'info'
-            }]
+                'message': f'Forecast error: {str(e)[:50]}',
+                'type': 'error'
+            }],
+            'status': 'error',
+            'error': str(e)
         }
 
 
-# ============================================================
-# EXPORT FOR SERVICE LAYER
-# ============================================================
-__all__ = ['generate_alerts', 'FEATURE_BUCKETS']
+__all__ = ['generate_alerts', 'FEATURE_COLS', 'ALERT_TEMPLATES']
