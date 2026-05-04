@@ -1,0 +1,29 @@
+# UrjaDrishti forecasting pipeline — Python dependencies
+# Install with: pip install -r requirements.txt
+#
+# Python >= 3.9 recommended
+
+# Core data / numerics
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Gradient boosting
+lightgbm>=4.0.0
+
+# Conformal prediction intervals
+# IMPORTANT: must be >= 1.0.0
+# The 0.x API (MapieQuantileRegressor, mapie.quantile_regression) was
+# removed in 1.0. This project uses the 1.x API:
+#   from mapie.regression import ConformalizedQuantileRegressor
+mapie>=1.0.0
+
+# Model serialisation
+joblib>=1.3.0
+
+# Plotting (coverage artefacts)
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# scikit-learn is a transitive dependency of MAPIE and LightGBM;
+# pinned here explicitly for reproducibility
+scikit-learn>=1.3.0
