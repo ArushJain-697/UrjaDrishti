@@ -39,6 +39,7 @@ export default function AlertPanel({ plantId, p50, hours, onAlertsLoaded }) {
     }
     setLoading(true)
     setError(null)
+    const res = await fetchAlerts(plantId, p50, hours)
     const fetchedAlerts = res.data?.alerts ?? []
     setAlerts(fetchedAlerts)
     if (onAlertsLoaded) onAlertsLoaded(fetchedAlerts)

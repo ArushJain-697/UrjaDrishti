@@ -15,6 +15,7 @@ import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
 import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
+import ConfidenceScore from '../components/ConfidenceScore.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 
 function widenUncertainty(forecast, factor) {
@@ -175,6 +176,12 @@ export default function PlantView() {
           ⚠ {t('highUncertainty')}: {scenarios.find((s) => s.value === activeScenario)?.label}
         </div>
       ) : null}
+
+      <ConfidenceScore
+        p10={displayForecast?.p10 ?? []}
+        p90={displayForecast?.p90 ?? []}
+        capacityMw={meta.capacityMw}
+      />
 
       <div className="mt-6 flex flex-col gap-6 lg:flex-row">
         <div className="w-full min-w-0 lg:w-[65%]">
