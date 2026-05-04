@@ -48,26 +48,32 @@ from src.ml.evaluation.metrics import (
     assign_season,
 )
 
-# ── Column name mapping — update if Person 1 uses different names ──────────
+# ── Column name mapping — matches feature_matrix_final.csv exactly ────────
+# Key  = what our code uses internally
+# Value = what Person 1's CSV actually has
 COLUMN_MAP = {
     "timestamp"  : "timestamp",
     "plant_id"   : "plant_id",
     "plant_type" : "plant_type",
-    "actual_mw"  : "actual_mw",
-    "ghi"        : "ghi",
+    "actual_mw"  : "actual_generation_mw",   # ← Person 1 uses this name
+    "ghi"        : "GHI",                    # ← lives in raw_weather_data.csv
     "temperature": "temperature",
-    "wind_speed" : "wind_speed",
+    "wind_speed" : "wind_speed",             # ← lives in raw_weather_data.csv
 }
 
-# ── Plant type map — matches forecastService.py plant IDs ──────────────────
+# ── Plant type map — matches asset_registry.csv and feature_matrix_final.csv
 PLANT_TYPE_MAP = {
     "PVG_S1": "solar",
     "PVG_S2": "solar",
     "MIX_S1": "solar",
-    "GDG_W1": "wind",
-    "GDG_W2": "wind",
+    "GAD_W1": "wind",   # ← real data uses GAD_, not GDG_
+    "GAD_W2": "wind",
     "MIX_W1": "wind",
 }
+
+# ── File paths — relative to backend/ working directory ────────────────────
+FEATURE_MATRIX_PATH  = "../data/feature_matrix_final.csv"
+RAW_WEATHER_PATH     = "../data/raw_weather_data.csv"      # has GHI + wind_speed for NWP LR baseline
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -384,66 +390,87 @@ def _evaluate_baseline(df: pd.DataFrame,
 # This is what metrics.py's get_results() will call on Day 3.
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_all_baselines(data_path: str) -> dict:
+def run_all_baselines(feature_path: str = FEATURE_MATRIX_PATH,
+                      raw_weather_path: str = RAW_WEATHER_PATH) -> dict:
     """
-    Load Person 1's synthetic dataset, run all three baselines, return results.
+    Load Person 1's data, run all three baselines, return results.
+
+    Uses feature_matrix_final.csv as the primary source.
+    Merges raw_weather_data.csv for GHI + wind_speed (needed by Raw NWP LR baseline).
 
     Parameters
     ----------
-    data_path : str
-        Path to Person 1's synthetic CSV.
-        e.g. "data/synthetic_features.csv"
-
-    Returns
-    -------
-    dict with keys: persistence, climatological, raw_nwp
-    Each value is a dict with keys: overall, solar_summary, wind_summary
+    feature_path    : path to feature_matrix_final.csv
+    raw_weather_path: path to raw_weather_data.csv
     """
-    print(f"[Baselines] Loading data from {data_path}")
-    df = pd.read_csv(data_path)
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    import os
+    print(f"[Baselines] Loading feature matrix from {feature_path}")
+    df = pd.read_csv(feature_path)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
-    # Rename columns if needed
-    rename = {v: k for k, v in COLUMN_MAP.items() if v != k and v in df.columns}
-    if rename:
-        df = df.rename(columns=rename)
+    # Rename actual_generation_mw -> actual_mw (our internal name)
+    df = df.rename(columns={"actual_generation_mw": "actual_mw"})
 
-    # Add plant_type column if not present
+    # Cap nwp_spread outliers if the column exists
+    # (values above 100 are numerical artifacts in Person 1's data)
+    if "nwp_spread" in df.columns:
+        df["nwp_spread"] = df["nwp_spread"].clip(upper=100.0)
+
+    # Add plant_type from PLANT_TYPE_MAP if not already present
     if "plant_type" not in df.columns:
         df["plant_type"] = df["plant_id"].map(PLANT_TYPE_MAP).fillna("unknown")
+
+    # Merge raw weather columns (GHI, wind_speed) for the NWP LR baseline
+    # These live in raw_weather_data.csv, not in feature_matrix_final.csv
+    if os.path.exists(raw_weather_path):
+        print(f"[Baselines] Merging raw weather from {raw_weather_path}")
+        rw = pd.read_csv(raw_weather_path)
+        rw["timestamp"] = pd.to_datetime(rw["timestamp"], utc=True)
+        rw = rw.rename(columns={"generation_mw": "actual_mw_raw"})
+        rw = rw[["timestamp", "plant_id", "GHI", "wind_speed"]].copy()
+        df = df.merge(rw, on=["timestamp", "plant_id"], how="left")
+        # Rename to lowercase for our internal use
+        df = df.rename(columns={"GHI": "ghi", "wind_speed": "wind_speed"})
+    else:
+        print(f"[Baselines] raw_weather_data.csv not found — Raw NWP LR will fall back to plant mean")
+        df["ghi"]        = np.nan
+        df["wind_speed"] = np.nan
 
     # Temporal split — same boundaries as metrics.py
     train_df, val_df, test_df = temporal_split(df, timestamp_col="timestamp")
 
-    print(f"[Baselines] Running Persistence...")
-    full_with_persistence = persistence_forecast(df)
+    print("[Baselines] Running Persistence...")
+    full_with_persistence = persistence_forecast(df, actual_col="actual_mw")
     test_with_persistence = full_with_persistence[
         full_with_persistence["timestamp"] >= test_df["timestamp"].min()
     ].copy()
     test_with_persistence = add_baseline_intervals(
-        test_with_persistence, train_df, "persistence_forecast"
+        test_with_persistence, train_df, "persistence_forecast", actual_col="actual_mw"
     )
-    persistence_results = _evaluate_baseline(test_with_persistence, "persistence_forecast")
+    persistence_results = _evaluate_baseline(test_with_persistence, "persistence_forecast",
+                                              actual_col="actual_mw")
 
-    print(f"[Baselines] Running Climatological Mean...")
-    test_with_clim = climatological_forecast(train_df, test_df.copy())
-    # Compute clim residuals on train for interval width
-    train_with_clim = climatological_forecast(train_df, train_df.copy())
-    test_with_clim = add_baseline_intervals(
-        test_with_clim, train_with_clim, "climatological_forecast"
+    print("[Baselines] Running Climatological Mean...")
+    test_with_clim  = climatological_forecast(train_df, test_df.copy(), actual_col="actual_mw")
+    train_with_clim = climatological_forecast(train_df, train_df.copy(), actual_col="actual_mw")
+    test_with_clim  = add_baseline_intervals(
+        test_with_clim, train_with_clim, "climatological_forecast", actual_col="actual_mw"
     )
-    climatological_results = _evaluate_baseline(test_with_clim, "climatological_forecast")
+    climatological_results = _evaluate_baseline(test_with_clim, "climatological_forecast",
+                                                 actual_col="actual_mw")
 
-    print(f"[Baselines] Running Raw NWP Linear Regression...")
-    test_with_nwp, lr_models = raw_nwp_lr_forecast(train_df, test_df.copy())
-    # Get training predictions for interval calibration
-    train_with_nwp, _ = raw_nwp_lr_forecast(train_df, train_df.copy())
+    print("[Baselines] Running Raw NWP Linear Regression...")
+    test_with_nwp,  _  = raw_nwp_lr_forecast(train_df, test_df.copy(),
+                                               actual_col="actual_mw")
+    train_with_nwp, _  = raw_nwp_lr_forecast(train_df, train_df.copy(),
+                                               actual_col="actual_mw")
     test_with_nwp = add_baseline_intervals(
-        test_with_nwp, train_with_nwp, "raw_nwp_forecast"
+        test_with_nwp, train_with_nwp, "raw_nwp_forecast", actual_col="actual_mw"
     )
-    raw_nwp_results = _evaluate_baseline(test_with_nwp, "raw_nwp_forecast")
+    raw_nwp_results = _evaluate_baseline(test_with_nwp, "raw_nwp_forecast",
+                                          actual_col="actual_mw")
 
-    print(f"[Baselines] Done.")
+    print("[Baselines] Done.")
     return {
         "persistence"   : persistence_results,
         "climatological": climatological_results,
