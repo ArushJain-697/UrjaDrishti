@@ -3,6 +3,7 @@ import SystemStatus from './components/SystemStatus.jsx'
 import PlantView from './pages/PlantView.jsx'
 import ClusterView from './pages/ClusterView.jsx'
 import EvaluationView from './pages/EvaluationView.jsx'
+import ImpactCounters from './components/ImpactCounters.jsx'
 import { useLanguage } from './context/LanguageContext.jsx'
 import { useTheme } from './context/ThemeContext.jsx'
 
@@ -77,6 +78,7 @@ export default function App() {
               <span style={{ color: 'var(--faint-text)' }}>/</span>
               <span style={{ color: lang === 'en' ? '#10b981' : 'var(--muted-text)' }}>A</span>
             </button>
+            <ImpactCounters />
             <SystemStatus />
           </div>
         </div>
