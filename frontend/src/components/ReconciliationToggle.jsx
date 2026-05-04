@@ -45,7 +45,7 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
   const view = mintEnabled ? block?.post_mint : block?.pre_mint
 
   return (
-    <div className="rounded-xl border border-[#2a2d3e] bg-[#1e2130] p-4">
+    <div className="rounded-xl border border-line bg-hover-bg p-4">
       {!payload && error ? (
         <div className="mb-4">
           <ServiceErrorBanner onRetry={load} />
@@ -54,8 +54,8 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-[#e8eaf0]">{t('mintTitle')}</p>
-          <p className="mt-0.5 text-[12px] text-[#8b8fa8]">
+          <p className="text-sm font-medium text-main-text">{t('mintTitle')}</p>
+          <p className="mt-0.5 text-[12px] text-muted-text">
             {t('mintSubtitle')}
           </p>
         </div>
@@ -65,7 +65,7 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
           aria-checked={mintEnabled}
           onClick={() => onMintChange(!mintEnabled)}
           className={`relative h-9 w-16 shrink-0 rounded-full transition-colors duration-200 ${
-            mintEnabled ? 'bg-[#22c55e]' : 'bg-[#5a5d72]'
+            mintEnabled ? 'bg-[#22c55e]' : 'bg-[#64748b]'
           }`}
         >
           <span
@@ -73,7 +73,7 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
               mintEnabled ? 'translate-x-7' : 'translate-x-0'
             }`}
           >
-            <span className="text-[10px] font-bold text-[#1a1d27]">{mintEnabled ? 'ON' : 'OFF'}</span>
+            <span className="text-[10px] font-bold text-[#111f17]">{mintEnabled ? 'ON' : 'OFF'}</span>
           </span>
         </button>
       </div>
@@ -89,12 +89,12 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
             style={{ opacity: contentOpacity, transitionTimingFunction: 'ease' }}
           >
             {!view ? (
-              <p className="text-sm text-[#8b8fa8]">No reconciliation data</p>
+              <p className="text-sm text-muted-text">No reconciliation data</p>
             ) : (
               <>
                 <div className="grid grid-cols-1 items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
-                  <div className="rounded-lg border border-[#2a2d3e] bg-[#1a1d27] p-4 text-center transition-colors duration-300">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
+                  <div className="rounded-lg border border-line bg-surface-bg p-4 text-center transition-colors duration-300">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
                       {t('plantSum')}
                     </p>
                     <p
@@ -114,8 +114,8 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
                       </span>
                     )}
                   </div>
-                  <div className="rounded-lg border border-[#2a2d3e] bg-[#1a1d27] p-4 text-center transition-colors duration-300">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
+                  <div className="rounded-lg border border-line bg-surface-bg p-4 text-center transition-colors duration-300">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
                       {t('clusterForecast')}
                     </p>
                     <p

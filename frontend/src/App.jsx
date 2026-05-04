@@ -4,10 +4,12 @@ import PlantView from './pages/PlantView.jsx'
 import ClusterView from './pages/ClusterView.jsx'
 import EvaluationView from './pages/EvaluationView.jsx'
 import { useLanguage } from './context/LanguageContext.jsx'
+import { useTheme } from './context/ThemeContext.jsx'
 
 export default function App() {
   const [active, setActive] = useState('plant')
   const { lang, toggleLang, t } = useLanguage()
+  const { theme, toggleTheme } = useTheme()
   const tabs = [
     { id: 'plant', label: t('plantView') },
     { id: 'cluster', label: t('clusterView') },
@@ -15,16 +17,16 @@ export default function App() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0f1117] text-[#e8eaf0]">
-      <header className="sticky top-0 z-[100] bg-[#1a1d27]">
+    <div className="min-h-screen bg-base-bg text-main-text">
+      <header className="sticky top-0 z-[100] bg-surface-bg">
         <div
           className="h-[3px] w-full"
           style={{
-            background: 'linear-gradient(to right, #3b82f6, #a78bfa, #14b8a6)',
+            background: 'linear-gradient(to right, #10b981, #34d399, #059669)',
           }}
           aria-hidden
         />
-        <div className="mx-auto flex max-w-[1400px] flex-col gap-4 border-b border-[#2a2d3e] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-4 border-b border-line px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3 lg:max-w-xs">
             <img
               src="/urja-logo.svg"
@@ -34,8 +36,8 @@ export default function App() {
               className="h-10 w-10 shrink-0"
             />
             <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-lg font-medium tracking-tight text-[#3b82f6]">{t('appName')}</span>
-              <span className="text-[12px] text-[#5a5d72]">{t('appSubtitle')}</span>
+              <span className="text-lg font-medium tracking-tight text-[#10b981]">{t('appName')}</span>
+              <span className="text-[12px] text-faint-text">{t('appSubtitle')}</span>
             </div>
           </div>
           <nav
@@ -49,8 +51,8 @@ export default function App() {
                 onClick={() => setActive(tab.id)}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active === tab.id
-                    ? 'bg-[#1e2130] text-[#e8eaf0]'
-                    : 'text-[#8b8fa8] hover:bg-[#1e2130]/60 hover:text-[#e8eaf0]'
+                    ? 'bg-hover-bg text-main-text'
+                    : 'text-muted-text hover:bg-hover-bg/60 transition-all duration-300 hover:scale-[1.02] hover:text-main-text'
                 }`}
               >
                 {tab.label}
@@ -59,19 +61,27 @@ export default function App() {
           </nav>
           <div className="flex flex-1 items-center justify-end gap-2">
             <button
-              onClick={toggleLang}
-              className="flex items-center gap-1.5 rounded-md border border-[#2a2d3e] px-3 py-1.5 text-xs font-medium transition-colors hover:border-[#3b82f6]"
-              style={{ color: '#8b8fa8' }}
+              onClick={toggleTheme}
+              title="Toggle Theme"
+              className="flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs font-medium transition-colors hover:border-[#10b981] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+              style={{ color: 'var(--muted-text)' }}
             >
-              <span style={{ color: lang === 'kn' ? '#3b82f6' : '#8b8fa8' }}>ಕ</span>
-              <span style={{ color: '#5a5d72' }}>/</span>
-              <span style={{ color: lang === 'en' ? '#3b82f6' : '#8b8fa8' }}>A</span>
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <button
+              onClick={toggleLang}
+              className="flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs font-medium transition-colors hover:border-[#10b981] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+              style={{ color: 'var(--muted-text)' }}
+            >
+              <span style={{ color: lang === 'kn' ? '#10b981' : 'var(--muted-text)' }}>ಕ</span>
+              <span style={{ color: 'var(--faint-text)' }}>/</span>
+              <span style={{ color: lang === 'en' ? '#10b981' : 'var(--muted-text)' }}>A</span>
             </button>
             <SystemStatus />
           </div>
         </div>
       </header>
-      <main>
+      <main className="animate-fade-in">
         {active === 'plant' ? <PlantView /> : null}
         {active === 'cluster' ? <ClusterView /> : null}
         {active === 'evaluation' ? <EvaluationView /> : null}

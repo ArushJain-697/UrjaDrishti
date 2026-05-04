@@ -10,6 +10,7 @@ import PlantSelector from '../components/PlantSelector.jsx'
 import IntervalStats from '../components/IntervalStats.jsx'
 import ForecastChart from '../components/ForecastChart.jsx'
 import AlertPanel from '../components/AlertPanel.jsx'
+import ShapDrivers from '../components/ShapDrivers.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
 import CachedDataNotice from '../components/CachedDataNotice.jsx'
@@ -49,6 +50,7 @@ export default function PlantView() {
   const [isIntradayLoading, setIsIntradayLoading] = useState(false)
   const [activeScenario, setActiveScenario] = useState('Normal Day')
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [alertsData, setAlertsData] = useState([])
 
   // BUG 4 FIX: keep a stable ref to the original day-ahead forecast so that
   // repeated intraday clicks always use the same 6 actuals and don't compound drift.
@@ -138,7 +140,7 @@ export default function PlantView() {
               id="scenario"
               value={activeScenario}
               onChange={(e) => setActiveScenario(e.target.value)}
-              className="w-full cursor-pointer rounded-lg border border-[#2a2d3e] bg-[#1e2130] px-3 py-2 text-sm text-[#e8eaf0] outline-none transition hover:border-[#3b82f6]/40 focus:border-[#3b82f6]"
+              className="w-full cursor-pointer rounded-lg border border-line bg-hover-bg px-3 py-2 text-sm text-main-text outline-none transition hover:border-[#10b981] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_10px_rgba(16,185,129,0.2)]/40 focus:border-[#10b981]"
             >
               {scenarios.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -152,7 +154,7 @@ export default function PlantView() {
           type="button"
           disabled={isIntradayLoading || isLoading || !rawForecast}
           onClick={onIntraday}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#3b82f6] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#2563eb] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#10b981] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#2563eb] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isIntradayLoading ? (
             <>
@@ -190,7 +192,7 @@ export default function PlantView() {
                 />
               </div>
             ) : (
-              <div className="flex h-[320px] items-center justify-center rounded-xl border border-[#2a2d3e] bg-[#1e2130]">
+              <div className="flex h-[320px] items-center justify-center rounded-xl border border-line bg-hover-bg">
                 <LoadingSpinner />
               </div>
             )}
@@ -200,7 +202,10 @@ export default function PlantView() {
               </div>
             ) : null}
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-[#8b8fa8]">
+          
+          <ShapDrivers alerts={alertsData} />
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted-text">
             <span>
               {t('lastUpdated')}:{' '}
               {lastUpdated
@@ -208,7 +213,7 @@ export default function PlantView() {
                 : '—'}
             </span>
             <span className="inline-flex items-center gap-2">
-              <span className="rounded-full bg-[#1a1d27] px-2 py-0.5 text-[11px] font-medium text-[#8b8fa8]">
+              <span className="rounded-full bg-surface-bg px-2 py-0.5 text-[11px] font-medium text-muted-text">
                 {t('dayAhead')}
               </span>
               {isIntradayMode ? (
@@ -217,7 +222,7 @@ export default function PlantView() {
                 </span>
               ) : null}
             </span>
-            <span className="text-[#5a5d72]">
+            <span className="text-faint-text">
               {meta.name} · {formatMw(meta.capacityMw)} MW ({meta.type})
             </span>
           </div>
@@ -231,6 +236,7 @@ export default function PlantView() {
             plantId={selectedPlant}
             p50={useMemo(() => displayForecast?.p50 ?? [], [displayForecast])}
             hours={useMemo(() => displayForecast?.hours ?? [], [displayForecast])}
+            onAlertsLoaded={setAlertsData}
           />
         </div>
       </div>

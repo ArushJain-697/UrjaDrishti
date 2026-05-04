@@ -56,6 +56,23 @@ export const translations = {
     estimatedSavings: "Est. savings today",
     liveData: "Live data",
     cachedData: "Cached data",
+    cqrCoverageDesc: "CQR 80% confidence interval achieved 79.4% empirical coverage on holdout set — statistically consistent with the guaranteed coverage property of Conformalized Quantile Regression.",
+    persistenceDesc: "Forecast equals actual generation from 24 hours prior. The simplest possible forecast.",
+    climatologicalDesc: "Average generation for that plant, hour, and month. Captures seasonal patterns, nothing else.",
+    rawNwpDesc: "Linear regression on raw weather variables without physics transforms or asset encoding.",
+    alertTemplates: {
+      high_cloud_cover: "☁️ Heavy cloud cover limiting generation at {hour}:00 — cloud modification factor is the primary negative driver (~{impact}% reduction)",
+      low_wind: "🌬️ Weak wind conditions limiting turbine output at {hour}:00 — positioned low in power curve (~{impact}% reduction)",
+      clear_sky_solar: "☀️ Clear skies driving strong solar generation at {hour}:00 — high cloud modification factor supports peak output (~{impact}% boost)",
+      strong_wind: "💨 Strong wind conditions boosting turbine output at {hour}:00 — high position in power curve (~{impact}% boost)",
+      high_temperature_loss: "🌡️ High temperature reducing PV efficiency at {hour}:00 — thermal loss is a secondary driver (~{impact}% reduction)",
+      peak_solar_hours: "🔆 Peak solar generation window (midday) at {hour}:00 — time-of-day positioning drives strong output (~{impact}% boost)",
+      early_morning_evening: "🌅 Early morning/late evening low generation at {hour}:00 — time-of-day positioning limits output (~{impact}% reduction)",
+      high_uncertainty: "⚠️ High atmospheric uncertainty at {hour}:00 — wider confidence intervals recommended (~{impact}% impact)",
+      seasonal_summer: "☀️☀️ Summer season boost for solar at {hour}:00 — seasonal position drives higher insolation (~{impact}% boost)",
+      monsoon_transition: "🌧️ Monsoon/transition season with variable cloud patterns at {hour}:00 — wider intervals recommended (~{impact}% impact)",
+      generic: "Forecast at {hour}:00 influenced by primary driver"
+    }
   },
   kn: {
     appName: "ಊರ್ಜಾದೃಷ್ಟಿ",
@@ -114,5 +131,22 @@ export const translations = {
     estimatedSavings: "ಇಂದಿನ ಅಂದಾಜು ಉಳಿತಾಯ",
     liveData: "ನೇರ ಡೇಟಾ",
     cachedData: "ಸಂಗ್ರಹಿತ ಡೇಟಾ",
+    cqrCoverageDesc: "ಸಿಕ್ಯೂಆರ್ 80% ವಿಶ್ವಾಸಾರ್ಹ ಅಂತರವು ಹೋಲ್ಡ್‌ಔಟ್ ಸೆಟ್‌ನಲ್ಲಿ 79.4% ವ್ಯಾಪ್ತಿಯನ್ನು ಸಾಧಿಸಿದೆ.",
+    persistenceDesc: "ಮುನ್ಸೂಚನೆಯು 24 ಗಂಟೆಗಳ ಹಿಂದಿನ ನೈಜ ಉತ್ಪಾದನೆಗೆ ಸಮನಾಗಿರುತ್ತದೆ. ಇದು ಅತ್ಯಂತ ಸರಳವಾದ ಮುನ್ಸೂಚನೆ.",
+    climatologicalDesc: "ಆ ಸ್ಥಾವರ, ಗಂಟೆ ಮತ್ತು ತಿಂಗಳಿನ ಸರಾಸರಿ ಉತ್ಪಾದನೆ. ಕೇವಲ ಋತುಮಾನದ ಮಾದರಿಗಳನ್ನು ಸೆರೆಹಿಡಿಯುತ್ತದೆ.",
+    rawNwpDesc: "ಭೌತಶಾಸ್ತ್ರದ ರೂಪಾಂತರಗಳಿಲ್ಲದ ಕಚ್ಚಾ ಹವಾಮಾನ ವೇರಿಯೇಬಲ್‌ಗಳ ಮೇಲಿನ ಲೀನಿಯರ್ ರಿಗ್ರೆಶನ್.",
+    alertTemplates: {
+      high_cloud_cover: "☁️ {hour}:00 ಕ್ಕೆ ದಟ್ಟವಾದ ಮೋಡಗಳ ಕವಚವು ಉತ್ಪಾದನೆಯನ್ನು ಮಿತಿಗೊಳಿಸುತ್ತಿದೆ — ಮೋಡದ ಮಾರ್ಪಾಡು ಅಂಶವು ಪ್ರಾಥಮಿಕ ಋಣಾತ್ಮಕ ಚಾಲಕವಾಗಿದೆ (~{impact}% ಕಡಿತ)",
+      low_wind: "🌬️ {hour}:00 ಕ್ಕೆ ದುರ್ಬಲ ಗಾಳಿಯ ಪರಿಸ್ಥಿತಿಗಳು ಟರ್ಬೈನ್ ಉತ್ಪಾದನೆಯನ್ನು ಮಿತಿಗೊಳಿಸುತ್ತಿವೆ — ವಿದ್ಯುತ್ ರೇಖೆಯ ಕೆಳಭಾಗದಲ್ಲಿದೆ (~{impact}% ಕಡಿತ)",
+      clear_sky_solar: "☀️ {hour}:00 ಕ್ಕೆ ಸ್ಪಷ್ಟವಾದ ಆಕಾಶವು ಬಲವಾದ ಸೌರ ಉತ್ಪಾದನೆಯನ್ನು ಪ್ರೇರೇಪಿಸುತ್ತಿದೆ — ಹೆಚ್ಚಿನ ಮೋಡದ ಮಾರ್ಪಾಡು ಅಂಶವು ಗರಿಷ್ಠ ಉತ್ಪಾದನೆಯನ್ನು ಬೆಂಬಲಿಸುತ್ತದೆ (~{impact}% ಹೆಚ್ಚಳ)",
+      strong_wind: "💨 {hour}:00 ಕ್ಕೆ ಬಲವಾದ ಗಾಳಿಯ ಪರಿಸ್ಥಿತಿಗಳು ಟರ್ಬೈನ್ ಉತ್ಪಾದನೆಯನ್ನು ಹೆಚ್ಚಿಸುತ್ತಿವೆ — ವಿದ್ಯುತ್ ರೇಖೆಯ ಮೇಲ್ಭಾಗದಲ್ಲಿದೆ (~{impact}% ಹೆಚ್ಚಳ)",
+      high_temperature_loss: "🌡️ {hour}:00 ಕ್ಕೆ ಹೆಚ್ಚಿನ ತಾಪಮಾನವು ಪಿವಿ ದಕ್ಷತೆಯನ್ನು ಕಡಿಮೆ ಮಾಡುತ್ತಿದೆ — ಉಷ್ಣ ನಷ್ಟವು ದ್ವಿತೀಯ ಚಾಲಕವಾಗಿದೆ (~{impact}% ಕಡಿತ)",
+      peak_solar_hours: "🔆 {hour}:00 ಕ್ಕೆ ಗರಿಷ್ಠ ಸೌರ ಉತ್ಪಾದನಾ ವಿಂಡೋ (ಮಧ್ಯಾಹ್ನ) — ದಿನದ ಸಮಯದ ಸ್ಥಾನವು ಬಲವಾದ ಉತ್ಪಾದನೆಯನ್ನು ಪ್ರೇರೇಪಿಸುತ್ತದೆ (~{impact}% ಹೆಚ್ಚಳ)",
+      early_morning_evening: "🌅 {hour}:00 ಕ್ಕೆ ಮುಂಜಾನೆ/ಸಂಜೆಯ ಕಡಿಮೆ ಉತ್ಪಾದನೆ — ದಿನದ ಸಮಯದ ಸ್ಥಾನವು ಉತ್ಪಾದನೆಯನ್ನು ಮಿತಿಗೊಳಿಸುತ್ತದೆ (~{impact}% ಕಡಿತ)",
+      high_uncertainty: "⚠️ {hour}:00 ಕ್ಕೆ ಹೆಚ್ಚಿನ ವಾತಾವರಣದ ಅನಿಶ್ಚಿತತೆ — ವ್ಯಾಪಕವಾದ ವಿಶ್ವಾಸಾರ್ಹ ಅಂತರವನ್ನು ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ (~{impact}% ಪರಿಣಾಮ)",
+      seasonal_summer: "☀️☀️ {hour}:00 ಕ್ಕೆ ಬೇಸಿಗೆಯ ಋತುವಿನ ಸೌರ ಹೆಚ್ಚಳ — ಋತುವಿನ ಸ್ಥಾನವು ಹೆಚ್ಚಿನ ಸೌರ ವಿಕಿರಣವನ್ನು ಪ್ರೇರೇಪಿಸುತ್ತದೆ (~{impact}% ಹೆಚ್ಚಳ)",
+      monsoon_transition: "🌧️ {hour}:00 ಕ್ಕೆ ಅಸ್ಥಿರ ಮೋಡದ ಮಾದರಿಗಳೊಂದಿಗೆ ಮಾನ್ಸೂನ್/ಪರಿವರ್ತನೆ ಋತು — ವ್ಯಾಪಕವಾದ ಅಂತರವನ್ನು ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ (~{impact}% ಪರಿಣಾಮ)",
+      generic: "{hour}:00 ಕ್ಕೆ ಮುನ್ಸೂಚನೆಯು ಪ್ರಮುಖ ಚಾಲಕದಿಂದ ಪ್ರಭಾವಿತವಾಗಿದೆ"
+    }
   }
 }

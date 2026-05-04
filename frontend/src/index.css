@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+:root {
+  --base-bg: #f8fafc;
+  --surface-bg: #ffffff;
+  --hover-bg: #f1f5f9;
+  --line: #e2e8f0;
+  --main-text: #0f172a;
+  --muted-text: #475569;
+  --faint-text: #94a3b8;
+}
+
+.dark {
+  --base-bg: #0a120e;
+  --surface-bg: #111f17;
+  --hover-bg: #16281d;
+  --line: #1e2d24;
+  --main-text: #e8eaf0;
+  --muted-text: #94a3b8;
+  --faint-text: #64748b;
+}
+
+@theme {
+  --color-base-bg: var(--base-bg);
+  --color-surface-bg: var(--surface-bg);
+  --color-hover-bg: var(--hover-bg);
+  --color-line: var(--line);
+  --color-main-text: var(--main-text);
+  --color-muted-text: var(--muted-text);
+  --color-faint-text: var(--faint-text);
+}
+
 @layer base {
   *,
   *::before,
@@ -11,8 +41,8 @@
     margin: 0;
     font-family: system-ui, sans-serif;
     font-size: 14px;
-    background-color: #0f1117;
-    color: #e8eaf0;
+    background-color: var(--base-bg);
+    color: var(--main-text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -41,4 +71,13 @@
   to {
     opacity: 1;
   }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
 }

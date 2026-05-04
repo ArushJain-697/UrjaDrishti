@@ -99,10 +99,10 @@ export default function EvaluationView() {
       <div className="flex flex-wrap items-center gap-3">
         <BarChart2 className="h-7 w-7 text-[#60a5fa]" aria-hidden />
         <div>
-          <h1 className="text-xl font-medium tracking-tight text-[#e8eaf0]">
+          <h1 className="text-xl font-medium tracking-tight text-main-text">
             {t('modelPerformance')}
           </h1>
-          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[#8b8fa8]">
+          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-text">
             {t('modelSubtitle')}
           </p>
         </div>
@@ -137,14 +137,14 @@ export default function EvaluationView() {
         </div>
       ) : null}
 
-      <div className="mt-8 overflow-x-auto rounded-xl border border-[#2a2d3e] bg-[#1e2130]">
+      <div className="mt-8 overflow-x-auto rounded-xl border border-line bg-hover-bg">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
-            <tr className="bg-[#1a1d27] text-left text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
-              <th className="border-b border-[#2a2d3e] px-4 py-3">{t('model')}</th>
-              <th className="border-b border-[#2a2d3e] px-4 py-3">{t('nmaeSolar')}</th>
-              <th className="border-b border-[#2a2d3e] px-4 py-3">{t('nmaeWind')}</th>
-              <th className="border-b border-[#2a2d3e] px-4 py-3">CRPS</th>
+            <tr className="bg-surface-bg text-left text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
+              <th className="border-b border-line px-4 py-3">{t('model')}</th>
+              <th className="border-b border-line px-4 py-3">{t('nmaeSolar')}</th>
+              <th className="border-b border-line px-4 py-3">{t('nmaeWind')}</th>
+              <th className="border-b border-line px-4 py-3">CRPS</th>
             </tr>
           </thead>
           <tbody>
@@ -154,13 +154,13 @@ export default function EvaluationView() {
               return (
                 <tr
                   key={r.key}
-                  className={`border-b border-[#2a2d3e] transition-colors hover:bg-[#232636]/80 ${
+                  className={`border-b border-line transition-colors hover:bg-[#232636]/80 ${
                     isBest ? 'bg-[#22c55e]/6' : ''
                   }`}
                 >
                   <td
                     className={`px-4 py-3 font-medium ${
-                      isBest ? 'text-[#22c55e]' : 'text-[#e8eaf0]'
+                      isBest ? 'text-[#22c55e]' : 'text-main-text'
                     }`}
                   >
                     <span className="inline-flex items-center gap-2">
@@ -179,7 +179,7 @@ export default function EvaluationView() {
                         className="mt-1 text-[11px]"
                         style={{ color: improvementColor(imp.nmae_solar_pct) }}
                       >
-                        ▼ {imp.nmae_solar_pct}% vs persistence
+                        ▼ {imp.nmae_solar_pct}% {t('vsPersistence')}
                       </div>
                     ) : null}
                   </td>
@@ -190,7 +190,7 @@ export default function EvaluationView() {
                         className="mt-1 text-[11px]"
                         style={{ color: improvementColor(imp.nmae_wind_pct) }}
                       >
-                        ▼ {imp.nmae_wind_pct}% vs persistence
+                        ▼ {imp.nmae_wind_pct}% {t('vsPersistence')}
                       </div>
                     ) : null}
                   </td>
@@ -201,7 +201,7 @@ export default function EvaluationView() {
                         className="mt-1 text-[11px]"
                         style={{ color: improvementColor(imp.crps_pct) }}
                       >
-                        ▼ {imp.crps_pct}% vs persistence
+                        ▼ {imp.crps_pct}% {t('vsPersistence')}
                       </div>
                     ) : null}
                   </td>
@@ -212,39 +212,34 @@ export default function EvaluationView() {
         </table>
       </div>
 
-      <div className="mt-6 flex gap-3 rounded-xl border border-[#2a2d3e] bg-[#1e2130] p-4 text-sm leading-relaxed text-[#8b8fa8]">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#3b82f6]" aria-hidden />
-        <p>
-          CQR 80% confidence interval achieved 79.4% empirical coverage on holdout set —
-          statistically consistent with the guaranteed coverage property of Conformalized Quantile
-          Regression.
-        </p>
+      <div className="mt-6 flex gap-3 rounded-xl border border-line bg-hover-bg p-4 text-sm leading-relaxed text-muted-text">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#10b981]" aria-hidden />
+        <p>{t('cqrCoverageDesc')}</p>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-[#2a2d3e] bg-[#1a1d27] p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
+        <div className="rounded-xl border border-line bg-surface-bg p-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
             {t('persistence')}
           </p>
-          <p className="mt-2 text-[13px] leading-relaxed text-[#8b8fa8]">
-            Forecast equals actual generation from 24 hours prior. The simplest possible forecast.
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
+            {t('persistenceDesc')}
           </p>
         </div>
-        <div className="rounded-xl border border-[#2a2d3e] bg-[#1a1d27] p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
+        <div className="rounded-xl border border-line bg-surface-bg p-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
             {t('climatological')}
           </p>
-          <p className="mt-2 text-[13px] leading-relaxed text-[#8b8fa8]">
-            Average generation for that plant, hour, and month. Captures seasonal patterns, nothing
-            else.
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
+            {t('climatologicalDesc')}
           </p>
         </div>
-        <div className="rounded-xl border border-[#2a2d3e] bg-[#1a1d27] p-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
+        <div className="rounded-xl border border-line bg-surface-bg p-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
             {t('rawNwp')}
           </p>
-          <p className="mt-2 text-[13px] leading-relaxed text-[#8b8fa8]">
-            Linear regression on raw weather variables without physics transforms or asset encoding.
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-text">
+            {t('rawNwpDesc')}
           </p>
         </div>
       </div>

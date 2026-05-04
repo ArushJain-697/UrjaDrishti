@@ -477,3 +477,111 @@ Every team will say "renewable energy forecasting is important." You will say "K
 That specificity cannot be faked. It cannot be vibecoded. It requires the 2 hours of Gemini research before you write a single slide.
 
 Do the research first. Then fill in the slides. The structure is here. The content is in those 12 Gemini searches.
+
+
+
+I can see all 29 template slides clearly. Here is the complete mapping.
+
+---
+
+## UrjaDrishti Slide → Template Page Reference
+
+**Slide 1 — Title** → Template page **2** (full title slide, centered, teal background)
+
+**Slide 2 — Karnataka's Renewable Revolution** → Template page **9** (three icon cards in a row — use for three big stat numbers)
+
+**Slide 3 — The Variability Problem** → Template page **19** (bar chart slide — replace chart area with your three generation curve images)
+
+**Slide 4 — What Happens Without Accurate Forecasts** → Template page **28** (five-step horizontal process with circles and arrows — use for your cascade flow)
+
+**Slide 5 — The CERC Mandate** → Template page **12** (four subheadings with icon cluster on right)
+
+**Slide 6 — The Current State** → Template page **15** (stepped layered content with bullet points on right side)
+
+**Slide 7 — A Day in the Life** → Template page **27** (four-step horizontal process with arrows — use for the 06:00, 10:00, 14:00, 19:00 timeline)
+
+**Slide 8 — The Opportunity** → Template page **10** (three icon cards, different color scheme — use for your three big opportunity numbers)
+
+**Slide 9 — System Architecture** → Template page **27** (horizontal process flow with arrows — SCADA → UrjaDrishti → Dashboard)
+
+**Slide 10 — Why Synthetic Data Is Right** → Template page **17** (concentric circles showing three comparison layers)
+
+**Slide 11 — The Physics Layer** → Template page **9** (two icon cards side by side — solar left, wind right)
+
+**Slide 12 — The Global Model** → Template page **18** (table/grid layout — left column "everyone else", right column "UrjaDrishti")
+
+**Slide 13 — Two-Stage Architecture** → Template page **28** (five-step horizontal process — Stage 1, intraday triggers, Stage 2, correction, output)
+
+**Slide 14 — Physics-Constrained Loss** → Template page **14** (bubble/circle diagram — normal loss left bubble, constrained loss right bubble)
+
+**Slide 15 — Spatial Error Propagation** → Template page **26** (interconnected circles — plants as nodes with connections showing upwind relationships)
+
+**Slide 16 — What CQR Actually Means** → Template page **17** (three concentric/nested circles — point forecast inner, standard error middle, CQR outer)
+
+**Slide 17 — Adaptive Intervals** → Template page **18** (two-column comparison table — clear day left, monsoon day right)
+
+**Slide 18 — Mondrian CP** → Template page **24** (three-row comparison table — regime, target, achieved)
+
+**Slide 19 — Calibration Reliability Diagram** → Template page **21** (grouped bar chart — use for your reliability diagram chart)
+
+**Slide 20 — SHAP Explainability** → Template page **13** (three subheadings left, icons right — feature, SHAP value, alert text)
+
+**Slide 21 — Hardware Anomaly Detection** → Template page **9** (three icon cards — normal operation, CQR bounds, anomaly detected)
+
+**Slide 22 — Kannada Language Support** → Template page **18** (two-column table — English dashboard left, Kannada dashboard right)
+
+**Slide 23 — Plant View Dashboard** → Template page **16** (full visual area with petal/circular callout — use for screenshot with four callout arrows)
+
+**Slide 24 — Cluster View and Reconciliation** → Template page **9** (three icon cards — cluster chart, toggle OFF, toggle ON)
+
+**Slide 25 — Karnataka Grid Map** → Template page **25** (hub diagram with items around it — center is Karnataka, plants are outer nodes)
+
+**Slide 26 — Evaluation Dashboard** → Template page **21** (grouped bar chart — model vs baselines)
+
+**Slide 27 — WhatsApp Bot** → Template page **23** (five-step numbered process — scan QR, send message, subscribe, receive forecast, receive alert)
+
+**Slide 28 — Morning Briefing Email** → Template page **13** (three subheadings — who receives it, what it contains, when it sends)
+
+**Slide 29 — Compliance Checklist** → Template page **15** (stepped/layered content with bullets — eight checkmarks in the stepped rows)
+
+**Slide 30 — Security Architecture** → Template page **17** (three concentric circles — data layer, compute layer, access layer)
+
+**Slide 31 — NWP Failure Fallback** → Template page **28** (four-step horizontal process — normal, NWP fail, SCADA delay, full offline)
+
+**Slide 32 — Phased Deployment Plan** → Template page **27** (four-step horizontal process with arrows — Phase 1, Phase 2, Phase 3 + future)
+
+**Slide 33 — Evaluation Methodology** → Template page **15** (stepped layered content — training window, validation window, test window)
+
+**Slide 34 — Baseline Comparison Table** → Template page **19** (bar chart — four bars per metric, one per model)
+
+**Slide 35 — Calibration Results** → Template page **24** (three-row comparison table — quantile, target, observed)
+
+**Slide 36 — Sharpness Score** → Template page **21** (grouped bar chart — day-ahead vs intraday interval width)
+
+**Slide 37 — Stress Test Results** → Template page **12** (four subheadings with icon cluster — one per stress scenario)
+
+**Slide 38 — Season-Stratified Performance** → Template page **18** (table grid — four seasons as columns, metrics as rows)
+
+**Slide 39 — Carbon and Cost Impact** → Template page **22** (four-item cycle — four big impact numbers)
+
+**Slide 40 — Beyond Karnataka** → Template page **25** (hub/pentagon diagram — Karnataka center, other states as outer nodes)
+
+**Slide 41 — Production Architecture Roadmap** → Template page **27** (four-step horizontal — Phase 1, Phase 2, Phase 3, National Scale)
+
+**Slide 42 — Open Source Potential** → Template page **14** (bubble diagram — three bubbles: physics layer, data pipeline, evaluation framework)
+
+**Slide 43 — The Team** → Template page **23** (five-step numbered process — one card per person)
+
+**Slide 44 — Thesis Restatement** → Template page **9** (three icon cards — problem, solution, proof)
+
+**Slide 45 — Final Closing Slide** → Template page **29** (full dark quote slide — replace Modi quote with your thesis line, replace photo with UrjaDrishti logo or Karnataka map)
+
+---
+
+## Section Divider Slides — Use These Between Sections
+
+Between each major section drop a section divider. Use template page **6** (clean table of contents list style) but repurpose it as a section break showing which section you're entering. You'll need roughly 7 of these dividers between your 8 sections. Keep it the same teal design, just put the section name large in the center.
+
+---
+
+The total with dividers gets you to around 45-52 slides comfortably. Every single content type in your deck has a matching layout in this template. You just replace the government ministry branding with UrjaDrishti branding — swap the Ashoka emblem for your logo, change Ministry of Health to KREDL/KSPDCL, and keep the teal-green color scheme which actually works perfectly for a renewable energy presentation.

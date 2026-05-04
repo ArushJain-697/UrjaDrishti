@@ -36,15 +36,15 @@ export default function IntervalStats({ p10, p90 }) {
       {cards.map((c) => (
         <div
           key={c.label}
-          className="rounded-xl border border-[#2a2d3e] bg-[#1e2130] p-4"
+          className="rounded-xl border border-line bg-hover-bg p-4"
         >
-          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[#5a5d72]">
+          <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
             {c.label}
           </p>
           <p className={`mt-2 text-2xl font-medium tracking-tight ${bandColor(c.value)}`}>
             {formatMw(c.value)} MW
           </p>
-          <p className="mt-1 text-[12px] text-[#8b8fa8]">{t('avgConfidenceBand')}</p>
+          <p className="mt-1 text-[12px] text-muted-text">{t('avgConfidenceBand')}</p>
         </div>
       ))}
     </div>

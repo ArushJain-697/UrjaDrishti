@@ -19,14 +19,14 @@ def _mock_evaluation() -> dict:
             "raw_nwp":        {"nmae_solar": 0.15, "nmae_wind": 0.18, "crps": 0.26},
         },
         "model": {
-            "nmae_solar": None,
-            "nmae_wind":  None,
-            "crps":       None,
+            "nmae_solar": 0.09,
+            "nmae_wind":  0.11,
+            "crps":       0.14,
         },
         "improvement_over_persistence": {
-            "nmae_solar_pct": None,
-            "nmae_wind_pct":  None,
-            "crps_pct":       None,
+            "nmae_solar_pct": 57,
+            "nmae_wind_pct":  54,
+            "crps_pct":       58,
         },
     }
 

@@ -15,7 +15,7 @@ export default function CachedDataNotice() {
 
   return (
     <div
-      className="mb-4 rounded-lg border border-[#2a2d3e] bg-[#1a1d27] px-3 py-2 text-[13px] text-[#5a5d72]"
+      className="mb-4 rounded-lg border border-line bg-surface-bg px-3 py-2 text-[13px] text-faint-text"
       role="status"
     >
       {t('cachedData')}

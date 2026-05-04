@@ -19,10 +19,10 @@ import { Info } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext.jsx'
 
 const BAR_COLORS = {
-  PVG_S1: '#3b82f6',
+  PVG_S1: '#10b981',
   PVG_S2: '#60a5fa',
   MIX_S1: '#93c5fd',
-  GAD_W1: '#a78bfa',
+  GAD_W1: '#34d399',
   GAD_W2: '#7c3aed',
   MIX_W1: '#c4b5fd',
 }
@@ -34,13 +34,13 @@ function ClusterTooltip({ active, payload, label }) {
   const h = Number(label)
   const hh = String(h).padStart(2, '0')
   return (
-    <div className="rounded-lg border border-[#2a2d3e] bg-[#1e2130] px-3 py-2 text-xs shadow-lg">
-      <p className="mb-2 font-medium text-[#e8eaf0]">{hh}:00 IST</p>
+    <div className="rounded-lg border border-line bg-hover-bg px-3 py-2 text-xs shadow-lg">
+      <p className="mb-2 font-medium text-main-text">{hh}:00 IST</p>
       <ul className="space-y-1">
         {payload.map((p) => (
-          <li key={p.dataKey} className="flex justify-between gap-4 text-[#8b8fa8]">
+          <li key={p.dataKey} className="flex justify-between gap-4 text-muted-text">
             <span style={{ color: p.color }}>{PLANT_NAMES[p.dataKey] || p.dataKey}</span>
-            <span className="tabular-nums text-[#e8eaf0]">{Number(p.value).toFixed(1)} MW</span>
+            <span className="tabular-nums text-main-text">{Number(p.value).toFixed(1)} MW</span>
           </li>
         ))}
       </ul>
@@ -128,7 +128,7 @@ export default function ClusterView() {
       ) : null}
 
       {/* BUG 2 FIX: map variable renamed from 't' to 'tab' throughout */}
-      <div className="flex gap-2 border-b border-[#2a2d3e]">
+      <div className="flex gap-2 border-b border-line">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -136,8 +136,8 @@ export default function ClusterView() {
             onClick={() => setSelectedCluster(tab.id)}
             className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
               selectedCluster === tab.id
-                ? 'border-[#3b82f6] text-[#e8eaf0]'
-                : 'border-transparent text-[#8b8fa8] hover:text-[#e8eaf0]'
+                ? 'border-[#10b981] text-main-text'
+                : 'border-transparent text-muted-text hover:text-main-text'
             }`}
           >
             {tab.label}
@@ -147,27 +147,27 @@ export default function ClusterView() {
 
       <div className="relative mt-6">
         {loading ? (
-          <div className="flex h-[280px] items-center justify-center rounded-xl border border-[#2a2d3e] bg-[#1e2130]">
+          <div className="flex h-[280px] items-center justify-center rounded-xl border border-line bg-hover-bg">
             <LoadingSpinner />
           </div>
         ) : (
-          <div className="h-[280px] w-full rounded-xl border border-[#2a2d3e] bg-[#1e2130] p-2">
+          <div className="h-[280px] w-full rounded-xl border border-line bg-hover-bg p-2">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid stroke="#2a2d3e" strokeOpacity={0.5} vertical={false} />
+                <CartesianGrid stroke="var(--line)" strokeOpacity={0.5} vertical={false} />
                 <XAxis
                   dataKey="hour"
                   tickFormatter={(v) => `${String(v).padStart(2, '0')}:00`}
-                  stroke="#2a2d3e"
-                  tick={{ fill: '#8b8fa8', fontSize: 11 }}
+                  stroke="var(--line)"
+                  tick={{ fill: 'var(--muted-text)', fontSize: 11 }}
                   tickLine={false}
-                  axisLine={{ stroke: '#2a2d3e' }}
+                  axisLine={{ stroke: 'var(--line)' }}
                 />
                 <YAxis
-                  stroke="#2a2d3e"
-                  tick={{ fill: '#8b8fa8', fontSize: 11 }}
+                  stroke="var(--line)"
+                  tick={{ fill: 'var(--muted-text)', fontSize: 11 }}
                   tickLine={false}
-                  axisLine={{ stroke: '#2a2d3e' }}
+                  axisLine={{ stroke: 'var(--line)' }}
                   width={44}
                 />
                 <Tooltip
@@ -175,7 +175,7 @@ export default function ClusterView() {
                   cursor={{ fill: 'rgba(59,130,246,0.06)' }}
                 />
                 <Legend
-                  wrapperStyle={{ fontSize: 12, color: '#8b8fa8' }}
+                  wrapperStyle={{ fontSize: 12, color: 'var(--muted-text)' }}
                   formatter={(value) => PLANT_NAMES[value] || value}
                 />
                 {plantIds.map((pid) => (
@@ -196,12 +196,12 @@ export default function ClusterView() {
 
       <section className="mt-10">
         <div className="mb-2 flex items-center gap-2">
-          <h2 className="text-lg font-medium tracking-tight text-[#e8eaf0]">
+          <h2 className="text-lg font-medium tracking-tight text-main-text">
             {t('hierarchicalConsistency')}
           </h2>
-          <Info className="h-4 w-4 text-[#8b8fa8]" aria-hidden />
+          <Info className="h-4 w-4 text-muted-text" aria-hidden />
         </div>
-        <p className="mb-4 max-w-3xl text-sm leading-relaxed text-[#8b8fa8]">
+        <p className="mb-4 max-w-3xl text-sm leading-relaxed text-muted-text">
           {t('hierarchicalSubtitle')}
         </p>
         <ReconciliationToggle
