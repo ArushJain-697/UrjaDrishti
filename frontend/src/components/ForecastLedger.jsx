@@ -258,7 +258,7 @@ export default function ForecastLedger() {
               <Th col="actualPeak" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Actual Peak</Th>
               <Th col="errorPct" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Error %</Th>
               <Th col="confidence" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Confidence</Th>
-              <th className="border-b border-line px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-faint-text">Notes</th>
+              <th className="w-full border-b border-line px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-faint-text">Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -311,7 +311,7 @@ export default function ForecastLedger() {
                     </span>
                     <span className="text-faint-text">/10</span>
                   </td>
-                  <td className="px-4 py-2.5 text-[11px] text-faint-text max-w-[220px] truncate" title={row.notes}>
+                  <td className="px-4 py-2.5 text-[11px] text-faint-text w-full max-w-0 truncate" title={row.notes}>
                     {row.notes}
                   </td>
                 </tr>

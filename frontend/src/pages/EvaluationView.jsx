@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BarChart2, ClipboardList, Info, TrendingUp, Activity } from 'lucide-react'
+import { BarChart2, ClipboardList, Info, TrendingUp, Activity, Download } from 'lucide-react'
 import { fetchEvaluation } from '../api/client'
 import StatCard from '../components/StatCard.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
@@ -9,6 +9,7 @@ import DataNote from '../components/DataNote.jsx'
 import ForecastLedger from '../components/ForecastLedger.jsx'
 import ModelHealthPanel from '../components/ModelHealthPanel.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
+import { generateReport } from '../utils/pdfGenerator.js'
 
 function fmtMetric(x) {
   if (x == null || !Number.isFinite(Number(x))) return '—'
@@ -99,16 +100,25 @@ export default function EvaluationView() {
         <CachedDataNotice key={cacheNoticeKey} />
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <BarChart2 className="h-7 w-7 text-[#60a5fa]" aria-hidden />
-        <div>
-          <h1 className="text-xl font-medium tracking-tight text-main-text">
-            {t('modelPerformance')}
-          </h1>
-          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-text">
-            {t('modelSubtitle')}
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <BarChart2 className="h-7 w-7 text-[#60a5fa]" aria-hidden />
+          <div>
+            <h1 className="text-xl font-medium tracking-tight text-main-text">
+              {t('modelPerformance')}
+            </h1>
+            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-text">
+              {t('modelSubtitle')}
+            </p>
+          </div>
         </div>
+        <button
+          onClick={() => generateReport(data, null)}
+          className="flex items-center gap-2 rounded-lg bg-[#22c55e]/10 border border-[#22c55e]/20 px-4 py-2 text-sm font-medium text-[#22c55e] transition-colors hover:bg-[#22c55e]/20"
+        >
+          <Download className="h-4 w-4" />
+          Download Report
+        </button>
       </div>
 
       {/* ── Tab switcher ─────────────────────────────────────────────────── */}

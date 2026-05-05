@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, CheckCircle, Activity, BarChart, ShieldAlert } from 'lucide-react'
 import LoadingSpinner from './LoadingSpinner'
-import { apiFetch, fetchFleetHardware, fetchSystemCalibration, PLANTS } from '../api/client'
+import { client, fetchFleetHardware, fetchSystemCalibration, PLANTS } from '../api/client'
 
 export default function ModelHealthPanel() {
   const [data, setData] = useState({ hardware: null, calibration: null })
@@ -13,7 +13,8 @@ export default function ModelHealthPanel() {
     setError(null)
     try {
       // Fetch 100% REAL historical sample data from the ML backend test set
-      const res = await apiFetch('/api/evaluation/historical_sample?date=2024-01-15')
+      const response = await client.get('/api/evaluation/historical_sample?date=2024-01-15')
+      const res = response.data
       if (res.status === 'success' && res.plant_data) {
         const plantData = res.plant_data
         
