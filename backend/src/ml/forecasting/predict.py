@@ -61,54 +61,77 @@ def _season(month: int) -> int:
 
 def _build_feature_row(asset: dict, hour: int, doy: int, month: int,
                        cmf_override: float | None = None) -> dict:
-    """Build a single feature row for one (plant, hour) combination."""
-    lat_rad = np.radians(asset['lat'] if 'lat' in asset else 14.0)
-    lon_rad = np.radians(asset['lon'] if 'lon' in asset else 77.0)
+    """Build a single feature row for one (plant, hour) combination.
 
-    # Physics proxy features (deterministic from asset + time)
+    Wind diurnal pattern for Karnataka (Gadag region):
+      - Sea-breeze: speeds lowest at 06-08h, ramp through afternoon, peak 14-18h, taper overnight
+      - Seasonal: southwest monsoon (Jun-Sep) brings highest speeds, winter lowest
+      - Typical hub-height (90-100m) daily range: 4-14 m/s
+    """
+    lat_rad = np.radians(asset.get('lat', 14.0))
+    lon_rad = np.radians(asset.get('lon', 77.0))
+
     is_solar = asset['type'] == 'solar'
     solar_angle = max(0.0, np.sin(np.pi * (hour - 6) / 12)) if 6 <= hour <= 18 else 0.0
     season_factor = 1.0 + 0.3 * np.sin(2 * np.pi * (doy - 80) / 365)
 
+    # ── Solar CMF ─────────────────────────────────────────────────────────────
     if cmf_override is not None:
         cmf = float(cmf_override)
+    elif is_solar:
+        cmf = float(np.clip(solar_angle * season_factor * 0.82, 0, 1))
     else:
-        # Clear-sky proxy: solar angle × season factor, attenuated by typical cloud factor
-        cmf = float(np.clip(solar_angle * season_factor * 0.82, 0, 1)) if is_solar else 0.0
+        cmf = 0.0
 
-    # Wind power curve fraction proxy
-    wind_speed = 8.0 + 3.0 * np.sin(2 * np.pi * doy / 365)
+    # ── Wind power curve fraction (with diurnal + seasonal variation) ─────────
     if asset['type'] == 'wind':
-        if wind_speed < 3:
-            pcf = 0.0
-        elif wind_speed < 12:
-            pcf = (wind_speed - 3) / 9
-        else:
-            pcf = 1.0
+        # Calibrated to training data (feature_matrix_final.csv):
+        #   avg_PCF = 0.33, median = 0.19, avg_CF ≈ 29%
+        # Diurnal pattern: Karnataka wind peaks mid-afternoon (14h), lowest early morning (04h)
+        # Seasonal: pre-monsoon (Mar-May) ~+0.08 above annual mean; winter ~-0.08
+        seasonal_boost = 0.08 * np.sin(2 * np.pi * (doy - 100) / 365)
+        base_pcf = 0.30 + seasonal_boost
+
+        # Cosine diurnal: peak at 14h, trough at 02h, amplitude ±0.15
+        hour_angle = 2 * np.pi * (hour - 14) / 24
+        diurnal_pcf = 0.15 * np.cos(hour_angle)
+
+        pcf = float(np.clip(base_pcf + diurnal_pcf, 0.0, 1.0))
+        wind_speed = 3.0 + pcf * 9.0  # back-compute for nwp_spread only
+
+
     else:
+        wind_speed = 0.0
         pcf = 0.0
 
+    # ── Other features ────────────────────────────────────────────────────────
     temperature = 25.0 + 8.0 * np.sin(np.pi * (hour - 4) / 12) + 3.0 * season_factor
-    nwp_spread = 0.5 + 0.3 * (1 - solar_angle)  # wider spread when sun is low
+
+    # NWP spread: wider when solar angle is low (solar) or wind speed changes rapidly (wind)
+    if is_solar:
+        nwp_spread = 0.5 + 0.3 * (1 - solar_angle)
+    else:
+        # Wider spread during wind ramp hours (morning + evening transitions)
+        nwp_spread = 0.6 + 0.4 * abs(np.cos(np.pi * hour / 12))
 
     return {
-        'CMF':                cmf,
-        'power_curve_fraction': pcf,
-        'temperature':        float(temperature),
-        'nwp_spread':         float(nwp_spread),
-        'capacity_mw':        float(asset['capacity_mw']),
-        'lat_sin':            float(np.sin(lat_rad)),
-        'lat_cos':            float(np.cos(lat_rad)),
-        'lon_sin':            float(np.sin(lon_rad)),
-        'lon_cos':            float(np.cos(lon_rad)),
-        'tilt_angle_deg':     float(asset['tilt']),
-        'hub_height_m':       float(asset['hub']),
-        'hour_sin':           float(np.sin(2 * np.pi * hour / 24)),
-        'hour_cos':           float(np.cos(2 * np.pi * hour / 24)),
-        'doy_sin':            float(np.sin(2 * np.pi * doy / 365)),
-        'doy_cos':            float(np.cos(2 * np.pi * doy / 365)),
-        'season':             float(_season(month)),
-        'plant_type_enc':     0.0 if is_solar else 1.0,
+        'CMF':                    cmf,
+        'power_curve_fraction':   float(pcf),
+        'temperature':            float(temperature),
+        'nwp_spread':             float(nwp_spread),
+        'capacity_mw':            float(asset['capacity_mw']),
+        'lat_sin':                float(np.sin(lat_rad)),
+        'lat_cos':                float(np.cos(lat_rad)),
+        'lon_sin':                float(np.sin(lon_rad)),
+        'lon_cos':                float(np.cos(lon_rad)),
+        'tilt_angle_deg':         float(asset['tilt']),
+        'hub_height_m':           float(asset['hub']),
+        'hour_sin':               float(np.sin(2 * np.pi * hour / 24)),
+        'hour_cos':               float(np.cos(2 * np.pi * hour / 24)),
+        'doy_sin':                float(np.sin(2 * np.pi * doy / 365)),
+        'doy_cos':                float(np.cos(2 * np.pi * doy / 365)),
+        'season':                 float(_season(month)),
+        'plant_type_enc':         0.0 if is_solar else 1.0,
     }
 
 
