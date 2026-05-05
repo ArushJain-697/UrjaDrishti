@@ -258,7 +258,6 @@ export default function ForecastLedger() {
               <Th col="actualPeak" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Actual Peak</Th>
               <Th col="errorPct" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Error %</Th>
               <Th col="confidence" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Confidence</Th>
-              <Th col="officer" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Duty Officer</Th>
               <th className="border-b border-line px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-faint-text">Notes</th>
             </tr>
           </thead>
@@ -312,7 +311,6 @@ export default function ForecastLedger() {
                     </span>
                     <span className="text-faint-text">/10</span>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-text">{row.officer}</td>
                   <td className="px-4 py-2.5 text-[11px] text-faint-text max-w-[220px] truncate" title={row.notes}>
                     {row.notes}
                   </td>
@@ -328,7 +326,7 @@ export default function ForecastLedger() {
               <td className="px-4 py-3 text-[12px] font-bold" style={{ color: parseFloat(avgError) < 5 ? '#22c55e' : '#f59e0b' }}>
                 {avgError}% avg
               </td>
-              <td colSpan={3} className="px-4 py-3 text-[11px] text-muted-text">
+              <td colSpan={2} className="px-4 py-3 text-[11px] text-muted-text">
                 Best plant: <span className="font-medium text-main-text">{bestPlant}</span>
                 {' · '}
                 Most accurate day: <span className="font-medium text-main-text">{mostAccurateDay}</span>

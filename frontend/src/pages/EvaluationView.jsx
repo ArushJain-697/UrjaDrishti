@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BarChart2, ClipboardList, Info, TrendingUp } from 'lucide-react'
+import { BarChart2, ClipboardList, Info, TrendingUp, Activity } from 'lucide-react'
 import { fetchEvaluation } from '../api/client'
 import StatCard from '../components/StatCard.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
@@ -7,6 +7,7 @@ import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
 import CachedDataNotice from '../components/CachedDataNotice.jsx'
 import DataNote from '../components/DataNote.jsx'
 import ForecastLedger from '../components/ForecastLedger.jsx'
+import ModelHealthPanel from '../components/ModelHealthPanel.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 
 function fmtMetric(x) {
@@ -135,6 +136,18 @@ export default function EvaluationView() {
         >
           <ClipboardList className="h-4 w-4" />
           Forecast Ledger
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('health')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            activeTab === 'health'
+              ? 'bg-surface-bg text-main-text shadow-sm'
+              : 'text-muted-text hover:text-main-text'
+          }`}
+        >
+          <Activity className="h-4 w-4" />
+          Model Health
         </button>
       </div>
 
@@ -279,6 +292,8 @@ export default function EvaluationView() {
       )}
 
       {activeTab === 'ledger' && <ForecastLedger />}
+
+      {activeTab === 'health' && <ModelHealthPanel />}
 
       <DataNote />
     </div>

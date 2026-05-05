@@ -46,8 +46,15 @@ class QuantileCalibrationAudit:
         for q, preds in sorted(y_pred_quantiles.items()):
             preds = np.array(preds)
             
-            # What fraction of actuals fall below this quantile?
-            observed_coverage = np.mean(y_true <= preds)
+            # Mask out periods where generation is physically zero (e.g. solar at night)
+            # If P50 == 0, we should not include it in the quantile audit because 0 <= 0 is true
+            # and it artificially inflates coverage.
+            valid_mask = y_true > 0.01  # only audit periods with actual generation
+            
+            if np.sum(valid_mask) > 0:
+                observed_coverage = np.mean(y_true[valid_mask] <= preds[valid_mask])
+            else:
+                observed_coverage = float(q) # fallback if entirely zeros
             
             # Expected coverage == nominal quantile
             deviation = abs(observed_coverage - q)
@@ -60,8 +67,8 @@ class QuantileCalibrationAudit:
                 'observed_coverage': float(observed_coverage),
                 'deviation': float(deviation),
                 'within_tolerance': bool(is_well_calibrated),
-                'sample_size': len(y_true),
-                'count_below': int(np.sum(y_true <= preds))
+                'sample_size': int(np.sum(valid_mask)),
+                'count_below': int(np.sum(y_true[valid_mask] <= preds[valid_mask]))
             }
             
             if self.verbose:

@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from src.auth import verify_api_key
 from src.rate_limit import limiter
-from src.routes import alerts, evaluation, forecast, reconciled
+from src.routes import alerts, calibration, evaluation, forecast, hardware, reconciled
 
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,6 +70,18 @@ app.include_router(
     reconciled.router,
     prefix="/api/reconciled",
     tags=["Reconciled"],
+    dependencies=secured,
+)
+app.include_router(
+    hardware.router,
+    prefix="/api/hardware_check",
+    tags=["Hardware"],
+    dependencies=secured,
+)
+app.include_router(
+    calibration.router,
+    prefix="/api/calibration",
+    tags=["Calibration"],
     dependencies=secured,
 )
 

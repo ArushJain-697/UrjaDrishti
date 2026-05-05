@@ -254,6 +254,47 @@ export function mockEvaluation() {
   }
 }
 
+export function mockHardware() {
+  return {
+    status: "success",
+    result: {
+      timestamp: "2026-05-05T12:00:00",
+      plants: {
+        PVG_S1: { anomaly: false, severity: "none", recommendation: "✓ No action required." }
+      },
+      anomalies_detected: [],
+      summary: {
+        system_status: "✓ HEALTHY"
+      }
+    }
+  }
+}
+
+export function mockCalibration() {
+  return {
+    status: "success",
+    result: {
+      timestamp: "2026-05-05T12:00:00",
+      plants: {
+        PVG_S1: {
+          calibration_results: {
+            0.1: { nominal_quantile: 0.1, observed_coverage: 0.12, deviation: 0.02 },
+            0.5: { nominal_quantile: 0.5, observed_coverage: 0.50, deviation: 0.00 },
+            0.9: { nominal_quantile: 0.9, observed_coverage: 0.88, deviation: 0.02 }
+          },
+          is_calibrated: true,
+          calibration_status: "✓ WELL-CALIBRATED"
+        }
+      },
+      all_calibrated: true,
+      summary: {
+        status: "✓ SYSTEM CALIBRATED"
+      }
+    },
+    analysis: "Mock calibration analysis"
+  }
+}
+
 export function formatMw(value) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '0.0'
@@ -365,6 +406,38 @@ export async function fetchEvaluation() {
     return { data, usedFallback: false, error: null }
   } catch (error) {
     const { data, mockError } = tryMockEvaluation()
+    if (data) return { data, usedFallback: true, error }
+    return { data: null, usedFallback: true, error: mockError || error }
+  }
+}
+
+function tryMockHardware() {
+  try { return { data: mockHardware(), mockError: null } }
+  catch (e) { return { data: null, mockError: e } }
+}
+
+export async function fetchFleetHardware(plantData) {
+  try {
+    const { data } = await client.post('/api/hardware_check/fleet', { plant_data: plantData })
+    return { data, usedFallback: false, error: null }
+  } catch (error) {
+    const { data, mockError } = tryMockHardware()
+    if (data) return { data, usedFallback: true, error }
+    return { data: null, usedFallback: true, error: mockError || error }
+  }
+}
+
+function tryMockCalibration() {
+  try { return { data: mockCalibration(), mockError: null } }
+  catch (e) { return { data: null, mockError: e } }
+}
+
+export async function fetchSystemCalibration(plantData) {
+  try {
+    const { data } = await client.post('/api/calibration/system', { plant_data: plantData })
+    return { data, usedFallback: false, error: null }
+  } catch (error) {
+    const { data, mockError } = tryMockCalibration()
     if (data) return { data, usedFallback: true, error }
     return { data: null, usedFallback: true, error: mockError || error }
   }
