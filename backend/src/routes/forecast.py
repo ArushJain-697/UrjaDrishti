@@ -53,12 +53,12 @@ class IntradayRequest(BaseModel):
 
 
 @router.post("/")
-@limiter.limit("30/minute")
+@limiter.limit("300/minute")
 def forecast_endpoint(request: Request, req: ForecastRequest):
     return get_forecast(req.plant_id, req.hours_of_actuals)
 
 
 @router.post("/intraday")
-@limiter.limit("30/minute")
+@limiter.limit("300/minute")
 def intraday_endpoint(request: Request, req: IntradayRequest):
     return get_intraday_forecast(req.plant_id, req.actuals)

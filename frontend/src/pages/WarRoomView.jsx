@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { X, AlertTriangle, CheckCircle, Info, Wifi } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { X, AlertTriangle, CheckCircle, Info, RefreshCw } from 'lucide-react'
 import { PLANTS, plantMeta, fetchForecast, fetchAlerts } from '../api/client'
+
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -212,14 +213,42 @@ export default function WarRoomView({ onExit }) {
   const [alerts, setAlerts]       = useState({})
   const [loading, setLoading]     = useState(new Set(PLANTS.map(p => p.id)))
   const [lastUpd, setLastUpd]     = useState(null)
+  const [usingMock, setUsingMock] = useState(false)
+
+  const [fetchError, setFetchError] = useState('')
 
   const fetchAll = useCallback(async () => {
-    const fResults = await Promise.allSettled(PLANTS.map(p => fetchForecast(p.id, 0, 'Normal Day')))
+    let anyMock = false
     const newFc = {}
-    fResults.forEach((r, i) => { if (r.status === 'fulfilled') newFc[PLANTS[i].id] = r.value.data })
+
+    await Promise.all(PLANTS.map(async (p) => {
+      try {
+        const res = await fetch('http://localhost:8000/api/forecast/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'kredl-dev-key',
+          },
+          body: JSON.stringify({ plant_id: p.id, hours_of_actuals: 0 }),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        newFc[p.id] = data
+      } catch (err) {
+        anyMock = true
+        setFetchError(String(err?.message || err))
+        // use fetchForecast mock fallback
+        const fb = await fetchForecast(p.id, 0, 'Normal Day')
+        newFc[p.id] = fb.data
+      }
+    }))
+
     setForecasts(newFc)
+    setUsingMock(anyMock)
+    if (!anyMock) setFetchError('')
     setLoading(new Set())
     setLastUpd(new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }))
+
 
     const aResults = await Promise.allSettled(
       PLANTS.map((p, i) => {
@@ -236,6 +265,13 @@ export default function WarRoomView({ onExit }) {
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Keep retrying every 15s while on mock until real data loads
+  useEffect(() => {
+    if (!usingMock) return
+    const id = setInterval(() => { fetchAll() }, 15000)
+    return () => clearInterval(id)
+  }, [usingMock, fetchAll])
 
   const istHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getHours()
 
@@ -289,9 +325,16 @@ export default function WarRoomView({ onExit }) {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.textPri }}>
             WAR ROOM <span style={{ color: C.aGreen }}>—</span> LIVE GRID MONITOR
           </div>
-          <div style={{ fontSize: 9, color: C.textMut, letterSpacing: '0.12em', marginTop: 2 }}>
-            KARNATAKA RENEWABLE ENERGY · 6 PLANTS · 2 CLUSTERS
-          </div>
+          {usingMock ? (
+            <div style={{ fontSize: 9, color: C.aAmber, letterSpacing: '0.1em', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <RefreshCw size={8} style={{ animation: 'war-live-pulse 1s linear infinite' }} />
+              {fetchError ? `ERR: ${fetchError.slice(0, 60)}` : 'RETRYING — CONNECTING TO BACKEND'}
+            </div>
+          ) : (
+            <div style={{ fontSize: 9, color: C.textMut, letterSpacing: '0.12em', marginTop: 2 }}>
+              KARNATAKA RENEWABLE ENERGY · 6 PLANTS · 2 CLUSTERS
+            </div>
+          )}
         </div>
 
         {/* Right */}

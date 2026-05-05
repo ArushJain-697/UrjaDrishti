@@ -49,6 +49,6 @@ class AlertRequest(BaseModel):
 
 
 @router.post("/")
-@limiter.limit("30/minute")
+@limiter.limit("300/minute")
 def alerts_endpoint(request: Request, req: AlertRequest):
     return get_alerts(req.plant_id, req.p50, req.hours)
