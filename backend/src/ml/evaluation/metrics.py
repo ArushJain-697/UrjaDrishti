@@ -292,6 +292,32 @@ def quantile_calibration_audit(
     }
 
 
+def plot_quantile_reliability(audit: dict, save_path: str) -> None:
+    """
+    Save a reliability diagram (observed vs nominal quantiles).
+    """
+    import matplotlib.pyplot as plt
+
+    points = audit.get("points", [])
+    if not points:
+        raise ValueError("Audit has no points to plot")
+
+    x = [row["quantile"] for row in points]
+    y = [row["observed"] for row in points]
+
+    plt.figure(figsize=(6, 6))
+    plt.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Perfect calibration")
+    plt.plot(x, y, marker="o", linewidth=2, label="Model")
+    plt.xlabel("Nominal quantile")
+    plt.ylabel("Observed fraction below quantile")
+    plt.title("Quantile Reliability Diagram")
+    plt.legend()
+    plt.grid(alpha=0.25)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150)
+    plt.close()
+
+
 # ──────────────────────────────────────────────────────────────
 # 3.  SEASON HELPER
 # ──────────────────────────────────────────────────────────────
