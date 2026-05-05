@@ -43,9 +43,11 @@ from src.ml.evaluation.metrics import (
     temporal_split,
     nmae,
     nrmse,
-    crps_gaussian,
+    crps_ensemble_score,
     prediction_interval_coverage,
     assign_season,
+    resolve_evaluation_data_paths,
+    sharpness_score,
 )
 
 # ── Column name mapping — matches feature_matrix_final.csv exactly ────────
@@ -72,8 +74,9 @@ PLANT_TYPE_MAP = {
 }
 
 # ── File paths — relative to backend/ working directory ────────────────────
-FEATURE_MATRIX_PATH  = "../data/feature_matrix_final.csv"
-RAW_WEATHER_PATH     = "../data/raw_weather_data.csv"      # has GHI + wind_speed for NWP LR baseline
+_DEFAULT_PATHS = resolve_evaluation_data_paths()
+FEATURE_MATRIX_PATH  = _DEFAULT_PATHS["feature_matrix"]
+RAW_WEATHER_PATH     = _DEFAULT_PATHS["raw_weather"]      # has GHI + wind_speed for NWP LR baseline
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -343,7 +346,8 @@ def add_baseline_intervals(test_df: pd.DataFrame,
 def _evaluate_baseline(df: pd.DataFrame,
                         forecast_col: str,
                         actual_col: str = "actual_mw",
-                        plant_type_col: str = "plant_type") -> dict:
+                        plant_type_col: str = "plant_type",
+                        include_coverage_90: bool = False) -> dict:
     """
     Compute nMAE, nRMSE, CRPS for solar plants, wind plants, and overall.
     Rows where forecast is NaN (e.g. first 24h of persistence) are excluded.
@@ -369,10 +373,15 @@ def _evaluate_baseline(df: pd.DataFrame,
             p10 = sub[p10_col].values
             p90 = sub[p90_col].values
             result["coverage_80"] = round(prediction_interval_coverage(a, p10, p90), 4)
-            try:
-                result["crps"] = round(crps_gaussian(a, f, p10, p90), 4)
-            except Exception:
-                result["crps"] = None
+            result["crps"] = round(crps_ensemble_score(a, f, p10, p90), 4)
+            if "capacity_mw" in sub.columns:
+                sharp = sharpness_score(p10, p90, sub["capacity_mw"].values)
+                result["sharpness"] = round(sharp, 4) if not np.isnan(sharp) else None
+            if include_coverage_90 and {"p05", "p95"}.issubset(sub.columns):
+                result["coverage_90"] = round(
+                    prediction_interval_coverage(a, sub["p05"].values, sub["p95"].values),
+                    4,
+                )
         return result
 
     solar = df[df[plant_type_col] == "solar"] if plant_type_col in df.columns else pd.DataFrame()

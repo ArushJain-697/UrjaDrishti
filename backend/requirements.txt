@@ -12,5 +12,6 @@ joblib
 python-dotenv
 httpx
 scipy
+properscoring
 seaborn
 matplotlib

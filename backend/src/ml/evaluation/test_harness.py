@@ -30,9 +30,12 @@ from src.ml.evaluation.metrics import (
     nmae,
     nrmse,
     prediction_interval_coverage,
+    crps_ensemble_score,
     crps_gaussian,
     evaluate,
     assign_season,
+    quantile_calibration_audit,
+    sharpness_score,
 )
 
 PASS = "[PASS]"
@@ -111,22 +114,48 @@ def test_coverage():
 
 
 def test_crps():
-    print("\n-- Test: crps_gaussian --")
-    try:
-        # Perfect forecast: actual == p50, narrow interval -> very low CRPS
-        actual = np.array([50.0, 50.0, 50.0])
-        p50    = np.array([50.0, 50.0, 50.0])
-        p10    = np.array([45.0, 45.0, 45.0])
-        p90    = np.array([55.0, 55.0, 55.0])
-        score = crps_gaussian(actual, p50, p10, p90)
-        print(f"  {PASS if score < 5.0 else FAIL} CRPS perfect forecast: {score:.4f} (expect < 5)")
+    print("\n-- Test: crps_ensemble_score and gaussian fallback --")
+    # Perfect forecast: actual == p50, narrow interval -> low CRPS
+    actual = np.array([50.0, 50.0, 50.0])
+    p50    = np.array([50.0, 50.0, 50.0])
+    p10    = np.array([45.0, 45.0, 45.0])
+    p90    = np.array([55.0, 55.0, 55.0])
+    score = crps_ensemble_score(actual, p50, p10, p90)
+    print(f"  {PASS if score < 5.0 else FAIL} CRPS perfect forecast: {score:.4f} (expect < 5)")
 
-        # Bad forecast: actual far from p50 -> higher CRPS
-        bad_p50 = np.array([100.0, 100.0, 100.0])
-        bad_score = crps_gaussian(actual, bad_p50, p10, p90)
-        print(f"  {PASS if bad_score > score else FAIL} CRPS bad > perfect: {bad_score:.4f} > {score:.4f}")
-    except ImportError:
-        print(f"  [SKIP] scipy not installed, CRPS skipped")
+    # Bad forecast: actual far from p50 -> higher CRPS
+    bad_p50 = np.array([100.0, 100.0, 100.0])
+    bad_score = crps_ensemble_score(actual, bad_p50, p10, p90)
+    print(f"  {PASS if bad_score > score else FAIL} CRPS bad > perfect: {bad_score:.4f} > {score:.4f}")
+
+    # Backward compatibility check: gaussian still available for tests
+    g_score = crps_gaussian(actual, p50, p10, p90)
+    print(f"  {PASS if g_score >= 0 else FAIL} Gaussian CRPS callable: {g_score:.4f}")
+    return True
+
+
+def test_calibration_audit():
+    print("\n-- Test: quantile_calibration_audit --")
+    n = 2000
+    rng = np.random.default_rng(42)
+    y_true = rng.uniform(0.0, 1.0, size=n)
+    q10 = np.full(n, 0.10)
+    q50 = np.full(n, 0.50)
+    q90 = np.full(n, 0.90)
+    audit = quantile_calibration_audit(y_true, [q10, q50, q90], [0.1, 0.5, 0.9])
+    mae = audit["mean_abs_calibration_error"]
+    print(f"  {PASS if mae < 0.03 else FAIL} Mean calibration error small: {mae:.4f}")
+    return True
+
+
+def test_sharpness():
+    print("\n-- Test: sharpness_score --")
+    p10 = np.array([10.0, 20.0, 30.0])
+    p90 = np.array([20.0, 40.0, 60.0])
+    cap = np.array([100.0, 100.0, 100.0])
+    score = sharpness_score(p10, p90, cap)
+    # widths: 10,20,30 => mean width 20; /100 = 0.20
+    assert_close(score, 0.20, tol=1e-6, label="sharpness normalized width")
     return True
 
 
@@ -149,6 +178,7 @@ def test_evaluate_end_to_end():
             "p50"      : np.clip(actual + noise,      0, 120),
             "p10"      : np.clip(actual + noise - 15, 0, 120),
             "p90"      : np.clip(actual + noise + 15, 0, 120),
+            "capacity_mw": 120.0,
         }))
 
     df = pd.concat(rows, ignore_index=True)
@@ -209,6 +239,8 @@ if __name__ == "__main__":
         test_nrmse(),
         test_coverage(),
         test_crps(),
+        test_calibration_audit(),
+        test_sharpness(),
         test_evaluate_end_to_end(),
     ]
 

@@ -31,9 +31,12 @@ Inputs expected from Person 1:
   Path: data/synthetic_features.csv  (Person 1 will confirm exact name)
 """
 
+import os
+from pathlib import Path
+from typing import Optional, Sequence
+
 import numpy as np
 import pandas as pd
-from typing import Optional
 
 
 # ──────────────────────────────────────────────────────────────
@@ -171,6 +174,57 @@ def crps_gaussian(actual: np.ndarray,
     return float(np.mean(crps_values))
 
 
+def _quantile_ensemble_from_p10_p50_p90(
+    p10: np.ndarray,
+    p50: np.ndarray,
+    p90: np.ndarray,
+    n_members: int = 41,
+) -> np.ndarray:
+    """
+    Build an ensemble matrix from available quantiles using piecewise linear
+    interpolation of the empirical quantile function.
+    """
+    if n_members < 3:
+        raise ValueError("n_members must be >= 3")
+
+    q_levels = np.array([0.1, 0.5, 0.9], dtype=float)
+    target_q = np.linspace(0.01, 0.99, n_members)
+
+    p10_arr = np.asarray(p10, dtype=float)
+    p50_arr = np.asarray(p50, dtype=float)
+    p90_arr = np.asarray(p90, dtype=float)
+
+    members = np.empty((len(p10_arr), n_members), dtype=float)
+    for idx in range(len(p10_arr)):
+        values = np.array([p10_arr[idx], p50_arr[idx], p90_arr[idx]], dtype=float)
+        values = np.maximum.accumulate(values)  # enforce non-decreasing quantiles
+        members[idx, :] = np.interp(target_q, q_levels, values)
+    return members
+
+
+def crps_ensemble_score(
+    actual: np.ndarray,
+    p50: np.ndarray,
+    p10: np.ndarray,
+    p90: np.ndarray,
+    fallback_to_gaussian: bool = True,
+) -> float:
+    """
+    CRPS computed with properscoring.crps_ensemble from quantile-derived members.
+    """
+    try:
+        import properscoring as ps
+    except ImportError:
+        if fallback_to_gaussian:
+            return crps_gaussian(actual, p50, p10, p90)
+        raise
+
+    actual_arr = np.asarray(actual, dtype=float)
+    members = _quantile_ensemble_from_p10_p50_p90(p10, p50, p90)
+    crps_vals = ps.crps_ensemble(actual_arr, members)
+    return float(np.mean(crps_vals))
+
+
 def prediction_interval_coverage(actual: np.ndarray,
                                   p10: np.ndarray,
                                   p90: np.ndarray) -> float:
@@ -189,6 +243,53 @@ def prediction_interval_coverage(actual: np.ndarray,
 
     inside = (actual >= p10) & (actual <= p90)
     return float(np.mean(inside))
+
+
+def sharpness_score(p10: np.ndarray, p90: np.ndarray, capacity_mw: np.ndarray) -> float:
+    """
+    Mean interval width normalized by capacity.
+    """
+    p10_arr = np.asarray(p10, dtype=float)
+    p90_arr = np.asarray(p90, dtype=float)
+    cap_arr = np.asarray(capacity_mw, dtype=float)
+    valid = cap_arr > 0
+    if not np.any(valid):
+        return np.nan
+    width = p90_arr[valid] - p10_arr[valid]
+    return float(np.mean(width / cap_arr[valid]))
+
+
+def quantile_calibration_audit(
+    y_true: np.ndarray,
+    y_pred_quantiles: Sequence[np.ndarray],
+    quantile_levels: Sequence[float],
+) -> dict:
+    """
+    Reliability-style calibration audit over one or more quantile levels.
+    """
+    y_true_arr = np.asarray(y_true, dtype=float)
+    if len(y_pred_quantiles) != len(quantile_levels):
+        raise ValueError("y_pred_quantiles and quantile_levels lengths must match")
+
+    rows = []
+    for level, pred in zip(quantile_levels, y_pred_quantiles):
+        pred_arr = np.asarray(pred, dtype=float)
+        observed = float(np.mean(y_true_arr <= pred_arr))
+        rows.append(
+            {
+                "quantile": float(level),
+                "observed": observed,
+                "abs_error": float(abs(observed - float(level))),
+            }
+        )
+
+    max_abs_error = max(row["abs_error"] for row in rows) if rows else np.nan
+    mean_abs_error = float(np.mean([row["abs_error"] for row in rows])) if rows else np.nan
+    return {
+        "points": rows,
+        "mean_abs_calibration_error": mean_abs_error,
+        "max_abs_calibration_error": float(max_abs_error),
+    }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -222,6 +323,7 @@ def evaluate(
     forecast_df: pd.DataFrame,
     plant_type_map: Optional[dict] = None,
     timestamp_col: str = "timestamp",
+    include_coverage_90: bool = False,
 ) -> dict:
     """
     Master evaluation function. Takes a forecast DataFrame and returns
@@ -278,9 +380,19 @@ def evaluate(
             "coverage_80" : round(prediction_interval_coverage(a, p10, p90), 4),
         }
 
-        # CRPS needs scipy — graceful fallback if not installed
+        if include_coverage_90 and {"p05", "p95"}.issubset(sub.columns):
+            result["coverage_90"] = round(
+                prediction_interval_coverage(a, sub["p05"].values, sub["p95"].values),
+                4,
+            )
+
+        if "capacity_mw" in sub.columns:
+            sharp = sharpness_score(p10, p90, sub["capacity_mw"].values)
+            result["sharpness"] = round(sharp, 4) if not np.isnan(sharp) else None
+
+        # CRPS via properscoring, with Gaussian fallback
         try:
-            result["crps"] = round(crps_gaussian(a, p50, p10, p90), 4)
+            result["crps"] = round(crps_ensemble_score(a, p50, p10, p90), 4)
         except ImportError:
             result["crps"] = None
 
@@ -311,6 +423,12 @@ def evaluate(
     solar_summary = _metrics(solar_df) if len(solar_df) > 0 else {}
     wind_summary  = _metrics(wind_df)  if len(wind_df)  > 0 else {}
 
+    calibration = quantile_calibration_audit(
+        df["actual"].values,
+        [df["p10"].values, df["p50"].values, df["p90"].values],
+        [0.10, 0.50, 0.90],
+    )
+
     return {
         "overall"      : overall,
         "by_plant"     : by_plant,
@@ -318,6 +436,7 @@ def evaluate(
         "by_season"    : by_season,
         "solar_summary": solar_summary,
         "wind_summary" : wind_summary,
+        "quantile_calibration": calibration,
     }
 
 
@@ -326,6 +445,50 @@ def evaluate(
 #     Right now returns mock data shaped like real output.
 #     On Day 3, replace mock with a real call to evaluate().
 # ──────────────────────────────────────────────────────────────
+
+def resolve_evaluation_data_paths(feature_path: Optional[str] = None,
+                                  raw_weather_path: Optional[str] = None) -> dict:
+    """
+    Resolve default evaluation CSV paths relative to repository root.
+    """
+    repo_root = Path(__file__).resolve().parents[4]
+    data_dir = repo_root / "data"
+    return {
+        "feature_matrix": str(Path(feature_path) if feature_path else data_dir / "feature_matrix_final.csv"),
+        "raw_weather": str(Path(raw_weather_path) if raw_weather_path else data_dir / "raw_weather_data.csv"),
+    }
+
+
+def _build_model_test_forecast(feature_path: str) -> Optional[pd.DataFrame]:
+    """
+    Build model predictions on temporal test split for evaluation.
+    """
+    import joblib
+    from src.ml.forecasting.feature_engineering import transform
+    from src.ml.forecasting.model import predict_stage1
+    from src.ml.forecasting.predict import _STAGE1_PATH
+
+    if not os.path.exists(_STAGE1_PATH):
+        print(f"[get_results] Stage-1 model missing at {_STAGE1_PATH}; model metrics set to None")
+        return None
+
+    df = pd.read_csv(feature_path)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    _, _, test_df = temporal_split(df, timestamp_col="timestamp")
+
+    stage1_model = joblib.load(_STAGE1_PATH)
+    X_test, _ = transform(test_df)
+    p50, p10, p90 = predict_stage1(stage1_model, X_test, return_pis=True)
+
+    out = test_df[["timestamp", "plant_id", "actual_generation_mw"]].copy()
+    out = out.rename(columns={"actual_generation_mw": "actual"})
+    out["p50"] = p50
+    out["p10"] = p10
+    out["p90"] = p90
+    if "capacity_mw" in test_df.columns:
+        out["capacity_mw"] = test_df["capacity_mw"].values
+    return out
+
 
 def get_results() -> dict:
     """
@@ -339,16 +502,18 @@ def get_results() -> dict:
         forecast_df = pd.read_csv("data/test_forecasts.csv")
         model_evals = evaluate(forecast_df, plant_type_map=PLANT_TYPE_MAP)
     """
-    import os
     from src.ml.evaluation.baselines import run_all_baselines
+    from src.ml.evaluation.baselines import PLANT_TYPE_MAP
 
     # ── Try real baselines first ─────────────────────────────────────────
-    DATA_PATH = "data/synthetic_features.csv"   # Person 1's deliverable
+    paths = resolve_evaluation_data_paths()
+    feature_path = paths["feature_matrix"]
+    raw_weather_path = paths["raw_weather"]
     baseline_results = None
 
-    if os.path.exists(DATA_PATH):
+    if os.path.exists(feature_path):
         try:
-            baseline_results = run_all_baselines(DATA_PATH)
+            baseline_results = run_all_baselines(feature_path, raw_weather_path)
         except Exception as e:
             print(f"[get_results] Baseline run failed: {e} — using mock")
 
@@ -356,10 +521,20 @@ def get_results() -> dict:
     def _fmt(b):
         """Extract solar/wind nMAE and CRPS from a baseline result dict."""
         if b is None:
-            return {"nmae_solar": None, "nmae_wind": None, "crps": None}
+            return {
+                "nmae_solar": None, "nmae_wind": None,
+                "nrmse_solar": None, "nrmse_wind": None,
+                "coverage_80": None, "coverage_90": None,
+                "sharpness": None, "crps": None
+            }
         return {
             "nmae_solar": b.get("solar_summary", {}).get("nmae"),
             "nmae_wind" : b.get("wind_summary",  {}).get("nmae"),
+            "nrmse_solar": b.get("solar_summary", {}).get("nrmse"),
+            "nrmse_wind" : b.get("wind_summary",  {}).get("nrmse"),
+            "coverage_80": b.get("overall", {}).get("coverage_80"),
+            "coverage_90": b.get("overall", {}).get("coverage_90"),
+            "sharpness"  : b.get("overall", {}).get("sharpness"),
             "crps"      : b.get("overall",        {}).get("crps"),
         }
 
@@ -372,20 +547,35 @@ def get_results() -> dict:
     else:
         # Static mock — used when Person 1's data file is not yet available
         baselines = {
-            "persistence":    {"nmae_solar": 0.21, "nmae_wind": 0.24, "crps": 0.33},
-            "climatological": {"nmae_solar": 0.17, "nmae_wind": 0.20, "crps": 0.29},
-            "raw_nwp":        {"nmae_solar": 0.15, "nmae_wind": 0.18, "crps": 0.26},
+            "persistence":    {"nmae_solar": 0.21, "nmae_wind": 0.24, "nrmse_solar": 0.29, "nrmse_wind": 0.31, "coverage_80": 0.79, "coverage_90": None, "sharpness": 0.28, "crps": 0.33},
+            "climatological": {"nmae_solar": 0.17, "nmae_wind": 0.20, "nrmse_solar": 0.24, "nrmse_wind": 0.26, "coverage_80": 0.81, "coverage_90": None, "sharpness": 0.25, "crps": 0.29},
+            "raw_nwp":        {"nmae_solar": 0.15, "nmae_wind": 0.18, "nrmse_solar": 0.21, "nrmse_wind": 0.23, "coverage_80": 0.82, "coverage_90": None, "sharpness": 0.23, "crps": 0.26},
         }
 
-    # ── Model results (Day 3 — filled when Person 2 is ready) ────────────
-    # TODO Day 3: Replace None values below with real model evaluation
-    # forecast_df = pd.read_csv("data/test_forecasts.csv")
-    # model_evals = evaluate(forecast_df, plant_type_map=PLANT_TYPE_MAP)
+    model_evals = None
     model = {
-        "nmae_solar": None,
-        "nmae_wind" : None,
-        "crps"      : None,
+        "nmae_solar": None, "nmae_wind": None,
+        "nrmse_solar": None, "nrmse_wind": None,
+        "coverage_80": None, "coverage_90": None,
+        "sharpness": None, "crps": None,
     }
+    if os.path.exists(feature_path):
+        try:
+            model_forecasts = _build_model_test_forecast(feature_path)
+            if model_forecasts is not None:
+                model_evals = evaluate(model_forecasts, plant_type_map=PLANT_TYPE_MAP, include_coverage_90=True)
+                model = {
+                    "nmae_solar": model_evals.get("solar_summary", {}).get("nmae"),
+                    "nmae_wind": model_evals.get("wind_summary", {}).get("nmae"),
+                    "nrmse_solar": model_evals.get("solar_summary", {}).get("nrmse"),
+                    "nrmse_wind": model_evals.get("wind_summary", {}).get("nrmse"),
+                    "coverage_80": model_evals.get("overall", {}).get("coverage_80"),
+                    "coverage_90": model_evals.get("overall", {}).get("coverage_90"),
+                    "sharpness": model_evals.get("overall", {}).get("sharpness"),
+                    "crps": model_evals.get("overall", {}).get("crps"),
+                }
+        except Exception as e:
+            print(f"[get_results] Model evaluation failed: {e} — model metrics set to None")
 
     # ── Compute improvement % if both model and persistence are available ─
     def _improvement_pct(model_val, baseline_val):
@@ -404,4 +594,5 @@ def get_results() -> dict:
         "baselines"                 : baselines,
         "model"                     : model,
         "improvement_over_persistence": improvement,
+        "model_evaluation": model_evals,
     }
