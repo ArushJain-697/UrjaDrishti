@@ -1,17 +1,21 @@
 import { useState } from 'react'
-import { Monitor } from 'lucide-react'
+import { Monitor, Bell } from 'lucide-react'
 import SystemStatus from './components/SystemStatus.jsx'
 import PlantView from './pages/PlantView.jsx'
 import ClusterView from './pages/ClusterView.jsx'
 import EvaluationView from './pages/EvaluationView.jsx'
 import WarRoomView from './pages/WarRoomView.jsx'
+import GridMapView from './pages/GridMapView.jsx'
+import LogbookView from './pages/LogbookView.jsx'
 import ImpactCounters from './components/ImpactCounters.jsx'
+import NotificationsPanel from './components/NotificationsPanel.jsx'
 import { useLanguage } from './context/LanguageContext.jsx'
 import { useTheme } from './context/ThemeContext.jsx'
 
 export default function App() {
   const [active, setActive] = useState('plant')
   const [warRoom, setWarRoom] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
   const { lang, toggleLang, t } = useLanguage()
   const { theme, toggleTheme } = useTheme()
 
@@ -26,7 +30,9 @@ export default function App() {
   const tabs = [
     { id: 'plant', label: t('plantView') },
     { id: 'cluster', label: t('clusterView') },
+    { id: 'grid', label: t('gridMap') || 'Grid Map' },
     { id: 'evaluation', label: t('evaluation') },
+    { id: 'logbook', label: t('logbook') || 'Logbook' },
   ]
 
   if (warRoom) return <WarRoomView onExit={exitWarRoom} />
@@ -93,6 +99,13 @@ export default function App() {
               <span style={{ color: lang === 'en' ? '#10b981' : 'var(--muted-text)' }}>A</span>
             </button>
             <ImpactCounters />
+            <button
+              onClick={() => setShowNotifications(true)}
+              title="Notifications Settings"
+              className="flex items-center justify-center h-[40px] w-[40px] rounded-full bg-[#3b82f6]/10 text-[#3b82f6] hover:bg-[#3b82f6]/20 transition-colors"
+            >
+              <Bell className="h-6 w-6" />
+            </button>
             <SystemStatus />
             <button
               onClick={enterWarRoom}
@@ -109,8 +122,14 @@ export default function App() {
       <main className="animate-fade-in">
         {active === 'plant' ? <PlantView /> : null}
         {active === 'cluster' ? <ClusterView /> : null}
+        {active === 'grid' ? <GridMapView /> : null}
         {active === 'evaluation' ? <EvaluationView /> : null}
+        {active === 'logbook' ? <LogbookView /> : null}
       </main>
+      <NotificationsPanel 
+        isOpen={showNotifications} 
+        onClose={() => setShowNotifications(false)} 
+      />
     </div>
   )
 }

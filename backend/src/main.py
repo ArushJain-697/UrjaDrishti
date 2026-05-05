@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from src.auth import verify_api_key
 from src.rate_limit import limiter
-from src.routes import alerts, calibration, evaluation, forecast, hardware, reconciled
+from src.routes import alerts, calibration, evaluation, forecast, hardware, reconciled, notifications
 
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -82,6 +82,14 @@ app.include_router(
     calibration.router,
     prefix="/api/calibration",
     tags=["Calibration"],
+    dependencies=secured,
+)
+app.include_router(
+    notifications.router,
+    prefix="/api/notifications",
+    tags=["Notifications"],
+    # Note: test-whatsapp/test-email can be tested easily if secured, 
+    # but we will secure it for consistency.
     dependencies=secured,
 )
 
