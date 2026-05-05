@@ -1,21 +1,35 @@
 import { useState } from 'react'
+import { Monitor } from 'lucide-react'
 import SystemStatus from './components/SystemStatus.jsx'
 import PlantView from './pages/PlantView.jsx'
 import ClusterView from './pages/ClusterView.jsx'
 import EvaluationView from './pages/EvaluationView.jsx'
+import WarRoomView from './pages/WarRoomView.jsx'
 import ImpactCounters from './components/ImpactCounters.jsx'
 import { useLanguage } from './context/LanguageContext.jsx'
 import { useTheme } from './context/ThemeContext.jsx'
 
 export default function App() {
   const [active, setActive] = useState('plant')
+  const [warRoom, setWarRoom] = useState(false)
   const { lang, toggleLang, t } = useLanguage()
   const { theme, toggleTheme } = useTheme()
+
+  const enterWarRoom = () => {
+    document.documentElement.requestFullscreen?.().catch(() => {})
+    setWarRoom(true)
+  }
+  const exitWarRoom = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+    setWarRoom(false)
+  }
   const tabs = [
     { id: 'plant', label: t('plantView') },
     { id: 'cluster', label: t('clusterView') },
     { id: 'evaluation', label: t('evaluation') },
   ]
+
+  if (warRoom) return <WarRoomView onExit={exitWarRoom} />
 
   return (
     <div className="min-h-screen bg-base-bg text-main-text">
@@ -80,6 +94,15 @@ export default function App() {
             </button>
             <ImpactCounters />
             <SystemStatus />
+            <button
+              onClick={enterWarRoom}
+              title="Enter War Room — fullscreen grid monitor"
+              className="flex items-center gap-1.5 rounded-md border border-[#ff3d0030] bg-[#ff3d0008] px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:border-[#ff3d00] hover:bg-[#ff3d0015] hover:shadow-[0_0_12px_rgba(255,61,0,0.3)]"
+              style={{ color: '#ff5252' }}
+            >
+              <Monitor className="h-3.5 w-3.5" aria-hidden />
+              War Room
+            </button>
           </div>
         </div>
       </header>

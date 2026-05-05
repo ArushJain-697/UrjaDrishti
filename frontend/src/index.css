@@ -81,3 +81,26 @@
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
+/* ── War Room animations ───────────────────────────────────── */
+@keyframes plant-pulse {
+  0%, 100% { box-shadow: 0 0 8px var(--wr-border-color, #00c853); }
+  50%       { box-shadow: 0 0 20px var(--wr-border-color, #00c853); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+@keyframes war-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1);   }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+@keyframes war-scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+.shimmer-wr {
+  background: linear-gradient(90deg, #0d1a0d 25%, #142814 50%, #0d1a0d 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

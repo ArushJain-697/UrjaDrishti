@@ -52,7 +52,7 @@ export default function AlertPanel({ plantId, p50, hours, onAlertsLoaded }) {
   }, [load])
 
   return (
-    <div className="flex h-full min-h-[320px] flex-col rounded-xl border border-line bg-hover-bg">
+    <div className="flex flex-col rounded-xl border border-line bg-hover-bg" style={{ maxHeight: 480 }}>
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <Bell className="h-4 w-4 text-emerald-500" aria-hidden />
         <h2 className="text-sm font-medium tracking-tight text-main-text">{t('forecastAlerts')}</h2>
@@ -73,7 +73,7 @@ export default function AlertPanel({ plantId, p50, hours, onAlertsLoaded }) {
         </div>
       ) : null}
 
-      <div className="relative flex-1 p-4">
+      <div className="relative flex-1 overflow-y-auto p-4" style={{ minHeight: 0 }}>
         {loading ? (
           <div className="flex h-40 items-center justify-center">
             <LoadingSpinner />
