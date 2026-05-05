@@ -616,9 +616,18 @@ def get_results() -> dict:
         "crps_pct"      : _improvement_pct(model["crps"],       p["crps"]),
     }
 
+    # ── Season-stratified & per-plant breakdown (surface for dashboard) ───
+    by_season = {}
+    by_plant  = {}
+    if model_evals:
+        by_season = model_evals.get("by_season", {})
+        by_plant  = model_evals.get("by_plant", {})
+
     return {
         "baselines"                 : baselines,
         "model"                     : model,
         "improvement_over_persistence": improvement,
-        "model_evaluation": model_evals,
+        "model_evaluation"          : model_evals,
+        "by_season"                 : by_season,
+        "by_plant"                  : by_plant,
     }
