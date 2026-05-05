@@ -192,8 +192,96 @@ def format_operator_report(report: Dict) -> str:
     return "\n".join(lines)
 
 
+# ============================================================
+# INTEGRATION: GET_RECONCILED (Day 4 completion)
+# ============================================================
+
+def get_reconciled():
+    """
+    Fetch live forecasts for all plants and run MinT reconciliation per cluster.
+    Wire this into reconciledService.py for live dashboard reconciliation.
+    """
+    try:
+        from src.services.forecastService import get_forecast
+        from src.services.alertService import get_alerts
+        
+        # Define plant-to-cluster mapping (from constants)
+        CLUSTER_MAP = {
+            "C1_Pavagada": ["PVG_S1", "PVG_S2", "MIX_S1"],
+            "C2_Gadag": ["GAD_W1", "GAD_W2", "MIX_W1"]
+        }
+        
+        SOLAR_PLANTS = {"PVG_S1", "PVG_S2", "MIX_S1"}
+        WIND_PLANTS = {"GAD_W1", "GAD_W2", "MIX_W1"}
+        
+        # Fetch forecasts for all plants
+        all_forecasts = {}
+        plant_types = {}
+        hours = list(range(24))
+        
+        for plant_id in CLUSTER_MAP["C1_Pavagada"] + CLUSTER_MAP["C2_Gadag"]:
+            forecast_data = get_forecast(plant_id)
+            all_forecasts[plant_id] = np.array(forecast_data["p50"])
+            plant_types[plant_id] = "solar" if plant_id in SOLAR_PLANTS else "wind"
+        
+        # Initialize reconciler and reporter
+        reconciler = MinTReconciler()
+        reporter = OperatorAlertReport(reconciler)
+        
+        # Reconcile each cluster
+        results = {}
+        shap_alerts_all = {}
+        
+        for cluster_name, plant_ids in CLUSTER_MAP.items():
+            # Get cluster forecast (sum of plants)
+            cluster_forecast = np.sum([all_forecasts[pid] for pid in plant_ids], axis=0)
+            
+            # Get SHAP alerts for each plant in cluster
+            for plant_id in plant_ids:
+                try:
+                    alert_resp = get_alerts(plant_id, all_forecasts[plant_id].tolist(), hours)
+                    shap_alerts_all[plant_id] = alert_resp.get("alerts", [])
+                except Exception:
+                    shap_alerts_all[plant_id] = []
+            
+            # Generate cluster reconciliation report
+            cluster_forecasts_dict = {pid: all_forecasts[pid] for pid in plant_ids}
+            report = reporter.generate_cluster_report(
+                cluster_name,
+                cluster_forecasts_dict,
+                cluster_forecast,
+                {pid: plant_types[pid] for pid in plant_ids},
+                {pid: shap_alerts_all.get(pid, []) for pid in plant_ids}
+            )
+            
+            results[cluster_name] = report
+        
+        return {
+            "status": "success",
+            "timestamp": pd.Timestamp.now().isoformat(),
+            "clusters": results,
+            "summary": {
+                "total_plants": len(all_forecasts),
+                "total_clusters": len(CLUSTER_MAP),
+                "C1_Pavagada_plants": CLUSTER_MAP["C1_Pavagada"],
+                "C2_Gadag_plants": CLUSTER_MAP["C2_Gadag"]
+            }
+        }
+    
+    except Exception as e:
+        # Graceful fallback
+        import traceback
+        return {
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "timestamp": pd.Timestamp.now().isoformat()
+        }
+
+
 __all__ = [
     'MinTReconciler',
     'OperatorAlertReport',
-    'format_operator_report'
+    'format_operator_report',
+    'get_reconciled'
 ]

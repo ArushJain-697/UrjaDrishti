@@ -1,5 +1,5 @@
-# Once Person 3 finishes MinT, uncomment this
-# from src.ml.explainability.reconciliation import get_reconciled as ml_reconciled
+# Wire Day 4 MinT reconciliation from Person 3
+from src.ml.explainability.reconciliation import get_reconciled as ml_reconciled
 
 MOCK_RECONCILED = {
     "cluster_a": {
@@ -14,8 +14,7 @@ MOCK_RECONCILED = {
 
 def get_reconciled():
     try:
-        # return ml_reconciled()
-        return MOCK_RECONCILED
+        return ml_reconciled()
     except Exception as e:
         print(f"Reconciled error: {e} — falling back to mock")
         return MOCK_RECONCILED
