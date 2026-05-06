@@ -192,29 +192,34 @@ def get_intraday_forecast(plant_id: str, actuals: list) -> dict:
     day_df = pd.DataFrame({
         'timestamp': [pd.Timestamp(f'{base_date} {h:02d}:00:00') for h in hours],
         'plant_id':  plant_id,
+        'plant_type': asset['type'],
         'actual_generation_mw': [
             actuals[h] if h < len(actuals) else np.nan
             for h in hours
         ],
         's1_pred': p50_full,
-        **{col: X[col].values for col in [
-            'CMF', 'power_curve_fraction', 'capacity_mw',
-            'lat_sin', 'lat_cos', 'lon_sin', 'lon_cos',
-        ]},
+        **{col: X[col].values for col in X.columns},
     })
     day_df['hour_of_day'] = hours
 
     result = intraday_update(s1, s2, day_df, cutoff_hour=len(actuals))
 
-    p50_out = result['final_pred'].values
+    # Pad the past hours with the actuals
+    cutoff = len(actuals)
+    future_p50 = result['final_pred'].values
+    p50_full_updated = np.zeros(24)
+    for i in range(cutoff):
+        p50_full_updated[i] = actuals[i]
+    for i in range(cutoff, 24):
+        p50_full_updated[i] = future_p50[i - cutoff]
+
     # Rebuild p10/p90 with narrowed intervals post-correction
-    s1_err = np.abs(result['actual'].fillna(result['s1_pred']) - result['s1_pred']).mean()
     half_width = (p90_full - p10_full) / 2 * 0.7  # intraday narrows by ~30%
 
     return {
         'plant_id': plant_id,
         'hours':    hours,
-        'p50':  [round(float(np.clip(v, 0, cap)), 2) for v in p50_out],
-        'p10':  [round(float(np.clip(p50_out[i] - half_width[i], 0, cap)), 2) for i in range(24)],
-        'p90':  [round(float(np.clip(p50_out[i] + half_width[i], 0, cap)), 2) for i in range(24)],
+        'p50':  [round(float(np.clip(v, 0, cap)), 2) for v in p50_full_updated],
+        'p10':  [round(float(np.clip(p50_full_updated[i] - half_width[i], 0, cap)), 2) for i in range(24)],
+        'p90':  [round(float(np.clip(p50_full_updated[i] + half_width[i], 0, cap)), 2) for i in range(24)],
     }

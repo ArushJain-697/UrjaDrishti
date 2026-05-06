@@ -279,7 +279,7 @@ def intraday_update(stage1_model, stage2_model, day_df, cutoff_hour):
         correction, final_pred, final_p10, final_p90,
         actual (NaN for future hours).
     """
-    from feature_engineering import transform
+    from src.ml.forecasting.feature_engineering import transform
 
     day_df = day_df.copy()
     day_df['hour_of_day'] = day_df['timestamp'].dt.hour
@@ -361,7 +361,7 @@ def get_forecast(stage1_model, stage2_model, current_features_df,
     -------
     pd.DataFrame with columns: plant_id | hour | p50 | p10 | p90  (MW)
     """
-    from feature_engineering import transform, FEATURE_COLS as _FC
+    from src.ml.forecasting.feature_engineering import transform, FEATURE_COLS as _FC
 
     df = current_features_df.copy()
     df['hour_of_day'] = pd.to_datetime(df['timestamp']).dt.hour

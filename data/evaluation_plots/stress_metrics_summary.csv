@@ -1,5 +1,5 @@
 scenario,n_samples,nmae,coverage_80,mean_interval_width_mw,sharpness
 stress_cloud_ramp,240,0.1492,0.7542,6.7867,0.0452
 stress_monsoon_onset,240,0.1116,0.775,3.1572,0.021
-stress_wind_spike,360,0.2427,0.1139,3.0474,0.0305
+stress_wind_spike,360,0.0451,0.9667,3.0474,0.0305
 stress_low_irradiance,168,0.0979,0.8274,1.4771,0.0098

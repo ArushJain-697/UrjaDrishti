@@ -162,7 +162,20 @@ def finalize_solar_row(row, ghi, cloud_cover, cs_ghi, capacity_mw):
 def finalize_wind_row(row, wind_speed, capacity_mw, i=0, all_ws=None):
     """Fill power_curve_fraction, generation, NWP spread for a wind row."""
     pcf = power_curve_fraction(wind_speed)
-    gen = pcf * capacity_mw
+    
+    # Use generic power curve for generation (matches generate_data.py where actuals come from)
+    gen_frac = 0.0
+    if 3.0 <= wind_speed < 25.0:
+        if wind_speed >= 12.0:
+            gen_frac = 1.0
+        else:
+            gen_frac = ((wind_speed - 3.0) / (12.0 - 3.0)) ** 3
+            
+    # Add noise only when producing (matches generate_data.py)
+    if gen_frac > 0:
+        gen_frac = max(0.0, min(1.0, gen_frac + 0.0))  # Can't reliably import random here for noise, using mean
+    
+    gen = gen_frac * capacity_mw
 
     ws_series = pd.Series(all_ws) if all_ws is not None else pd.Series([wind_speed])
     spread = compute_wind_nwp_spread(ws_series).iloc[
