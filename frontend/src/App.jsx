@@ -5,7 +5,6 @@ import PlantView from './pages/PlantView.jsx'
 import ClusterView from './pages/ClusterView.jsx'
 import EvaluationView from './pages/EvaluationView.jsx'
 import WarRoomView from './pages/WarRoomView.jsx'
-import GridMapView from './pages/GridMapView.jsx'
 import LogbookView from './pages/LogbookView.jsx'
 import ImpactCounters from './components/ImpactCounters.jsx'
 import NotificationsPanel from './components/NotificationsPanel.jsx'
@@ -30,7 +29,6 @@ export default function App() {
   const tabs = [
     { id: 'plant', label: t('plantView') },
     { id: 'cluster', label: t('clusterView') },
-    { id: 'grid', label: t('gridMap') || 'Grid Map' },
     { id: 'evaluation', label: t('evaluation') },
     { id: 'logbook', label: t('logbook') || 'Logbook' },
   ]
@@ -122,7 +120,6 @@ export default function App() {
       <main className="animate-fade-in">
         {active === 'plant' ? <PlantView /> : null}
         {active === 'cluster' ? <ClusterView /> : null}
-        {active === 'grid' ? <GridMapView /> : null}
         {active === 'evaluation' ? <EvaluationView /> : null}
         {active === 'logbook' ? <LogbookView /> : null}
       </main>
