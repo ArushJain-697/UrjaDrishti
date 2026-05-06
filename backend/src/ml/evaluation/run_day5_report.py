@@ -2,7 +2,7 @@
 Person 4 Day 5: Final evaluation report artifact generator.
 
 Usage (from backend/):
-    python scripts/evaluation/run_day5_report.py
+    python -m src.ml.evaluation.run_day5_report
 """
 
 from pathlib import Path
@@ -20,7 +20,7 @@ from src.ml.evaluation.metrics import (
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[4]
 
 
 def _reports_dir() -> Path:
@@ -98,7 +98,7 @@ def _write_submission_markdown(
         if calm_width_mw > 0:
             lines.append(f"- Widening factor (stress / calm): **{(peak_stress_width_mw / calm_width_mw):.2f}x**")
     else:
-        lines.append("- Day 4 stress summary missing; run `scripts/evaluation/run_stress_evaluation.py` first.")
+        lines.append("- Day 4 stress summary missing; run `python -m src.ml.evaluation.run_stress_evaluation` from `backend/` first.")
     lines.append("- Contrast plot: `data/evaluation_plots/calm_vs_stress_interval_width.png`")
     lines.append("")
     lines.append("## Season-Stratified Performance")
@@ -128,7 +128,6 @@ def main() -> None:
     comparison_df = pd.DataFrame(comparison_rows)
     comparison_df.to_csv(reports_dir / "comparison_table.csv", index=False)
 
-    # Feature 5: calibration audit + reliability plot
     calibration = model_evaluation.get("quantile_calibration")
     if calibration:
         pd.DataFrame(calibration.get("points", [])).to_csv(
@@ -136,7 +135,6 @@ def main() -> None:
         )
         plot_quantile_reliability(calibration, str(plot_dir / "quantile_reliability.png"))
 
-    # Season table export
     by_season = model_evaluation.get("by_season", {})
     season_rows = [
         {"season": season, "nmae": vals.get("nmae"), "nrmse": vals.get("nrmse"), "crps": vals.get("crps")}
@@ -147,7 +145,6 @@ def main() -> None:
     )
     season_df.to_csv(reports_dir / "season_stratified_table.csv", index=False)
 
-    # Feature 10: sharpness surfaced in comparison table + calm baseline width
     calm_width_mw = None
     peak_stress_width_mw = None
     paths = resolve_evaluation_data_paths()

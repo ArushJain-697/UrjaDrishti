@@ -2,7 +2,7 @@
 Evaluate stress scenarios with Stage-1 model and export plots/tables.
 
 Usage (from backend/):
-    python scripts/evaluation/run_stress_evaluation.py
+    python -m src.ml.evaluation.run_stress_evaluation
 """
 
 from pathlib import Path
@@ -35,7 +35,7 @@ STRESS_FILES = [
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[4]
 
 
 def _data_dir() -> Path:
@@ -59,7 +59,7 @@ def _predict_with_stage1(df: pd.DataFrame, model) -> pd.DataFrame:
 
 
 def _scenario_metrics(df: pd.DataFrame) -> dict:
-    a = df["actual_generation_mw"].values
+    actual = df["actual_generation_mw"].values
     p50 = df["p50"].values
     p10 = df["p10"].values
     p90 = df["p90"].values
@@ -67,8 +67,8 @@ def _scenario_metrics(df: pd.DataFrame) -> dict:
     width = p90 - p10
     return {
         "n_samples": int(len(df)),
-        "nmae": float(np.round(np.mean(np.abs(a - p50)) / np.mean(a), 4)) if np.mean(a) else np.nan,
-        "coverage_80": float(np.round(prediction_interval_coverage(a, p10, p90), 4)),
+        "nmae": float(np.round(np.mean(np.abs(actual - p50)) / np.mean(actual), 4)) if np.mean(actual) else np.nan,
+        "coverage_80": float(np.round(prediction_interval_coverage(actual, p10, p90), 4)),
         "mean_interval_width_mw": float(np.round(np.mean(width), 4)),
         "sharpness": float(np.round(sharpness_score(p10, p90, cap), 4)),
     }
@@ -141,7 +141,7 @@ def _season_table(normal_test_pred: pd.DataFrame, out_dir: Path) -> pd.DataFrame
     eval_df["season_label"] = pd.to_datetime(eval_df["timestamp"]).dt.month.apply(assign_season)
     stats = evaluate(eval_df, plant_type_map=PLANT_TYPE_MAP).get("by_season", {})
     table = pd.DataFrame(
-        [{"season": s, "nmae": v.get("nmae")} for s, v in stats.items()]
+        [{"season": season, "nmae": values.get("nmae")} for season, values in stats.items()]
     ).sort_values("season")
     table.to_csv(out_dir / "season_nmae_table.csv", index=False)
     return table
