@@ -24,7 +24,7 @@ def _repo_root() -> Path:
 
 
 def _reports_dir() -> Path:
-    out = _repo_root() / "backend" / "reports" / "evaluation"
+    out = _repo_root() / "backend" / "src" / "ml" / "evaluation" / "reports"
     out.mkdir(parents=True, exist_ok=True)
     return out
 
