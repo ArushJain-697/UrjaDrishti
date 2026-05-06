@@ -1,0 +1,1 @@
+Calm-vs-stress contrast uses temporal test holdout predictions as calm baseline and the stress scenario with highest mean interval width as peak-stress sample. We compare interval-width distributions via boxplot to visualize uncertainty widening under stress.
