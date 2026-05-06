@@ -25,7 +25,7 @@ def test_whatsapp(req: WhatsAppRequest):
         client = Client(sid, token)
         client.messages.create(
             from_='whatsapp:+14155238886',
-            to=f'whatsapp:{req.phone}',
+            to=f'whatsapp:+{req.phone}' if not req.phone.startswith('+') else f'whatsapp:{req.phone}',
             body=req.message
         )
         return {"status": "sent"}

@@ -69,3 +69,10 @@ Production deployment uses HTTPS with TLS termination at the nginx reverse proxy
 - Set `API_KEY` in the backend environment (see `backend/.env.example`). The frontend must send the same value in `X-API-Key` (see `frontend/.env.example` / `VITE_API_KEY`).
 - Request audit trail: `backend/logs/api_access.log` (created at runtime).
 - Rate limits: forecasting and alert POST routes default to 30 requests/minute per client IP; evaluation and reconciled GET routes to 60/minute.
+
+### Notification Integrations (Twilio & SendGrid)
+
+To enable the WhatsApp and Email test alerts from the dashboard:
+- Copy `backend/.env.example` to `backend/.env`.
+- **WhatsApp**: Add your Twilio Sandbox credentials (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`). Ensure you have opted-in to the Twilio Sandbox on your mobile device (e.g. by texting the 'join' code) to receive messages.
+- **Email**: Add your SendGrid API key (`SENDGRID_API_KEY`). Ensure your sender domain is authenticated in the SendGrid dashboard (the default sender is `urjadrishti@kredl.karnataka.gov.in`).
