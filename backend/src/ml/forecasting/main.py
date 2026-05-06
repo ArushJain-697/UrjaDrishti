@@ -1,29 +1,10 @@
-"""
-main.py — UrjaDrishti forecasting pipeline (Day 4 / Day 5).
-
-Runs:
-  1. Stage-1 global model training with MAPIE CQR (calibrated P10/P90).
-  2. Coverage evaluation: per-plant and per-season bar plots.
-  3. Stage-2 residual corrector training on val-set predictions.
-  4. Intra-day simulation at cutoff_hour=12 to verify Stage-2 improves
-     afternoon forecasts when morning actuals are fed in.
-  5. Saves both models to disk.
-
-New vs Day 3
-------------
-* data_loader.temporal_split now returns a 3-month calib split.
-* train_stage1 now wraps LightGBM in MapieQuantileRegressor.
-* evaluate_coverage() checks P10–P90 empirical coverage on the test set
-  and saves coverage_per_plant.png / coverage_per_season.png.
-"""
-
 import os
 import sys
 import argparse
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')           # headless — no display required
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 
@@ -39,14 +20,9 @@ from evaluation import nMAE, nRMSE
 
 _HERE        = os.path.dirname(os.path.abspath(__file__))
 _DEFAULT_CSV = os.path.join(_HERE, '..', '..', '..', '..', 'data', 'feature_matrix_final.csv')
-# Where to write artefacts
 _OUT_DIR = os.path.join(_HERE, 'artefacts')
 os.makedirs(_OUT_DIR, exist_ok=True)
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _cap_map(df):
     return df.groupby('plant_id')['capacity_mw'].first().to_dict()
@@ -57,28 +33,13 @@ def _total_cap(cap):
 
 
 def _season(month):
-    """Map month (1-12) to a season label."""
     return {12: 'Winter', 1: 'Winter', 2: 'Winter',
              3: 'Spring',  4: 'Spring',  5: 'Spring',
              6: 'Summer',  7: 'Summer',  8: 'Summer',
              9: 'Autumn', 10: 'Autumn', 11: 'Autumn'}[month]
 
 
-# ---------------------------------------------------------------------------
-# Stage-1
-# ---------------------------------------------------------------------------
-
 def train_and_eval_stage1(train_df, calib_df, val_df, test_df):
-    """
-    Train the MAPIE-wrapped Stage-1 model and evaluate point-forecast metrics.
-
-    Returns
-    -------
-    s1       : fitted MapieQuantileRegressor
-    preds    : P50 point forecasts on test_df
-    y_test   : actual generation on test_df
-    X_test   : feature matrix for test_df (needed by coverage eval)
-    """
     X_train, y_train = transform(train_df)
     X_calib, y_calib = transform(calib_df)
     X_val,   y_val   = transform(val_df)
@@ -87,7 +48,7 @@ def train_and_eval_stage1(train_df, calib_df, val_df, test_df):
     s1 = train_stage1(X_train, y_train, X_calib, y_calib, X_val, y_val)
 
     cap_t = _total_cap(_cap_map(test_df))
-    preds = predict_stage1(s1, X_test)          # P50 only
+    preds = predict_stage1(s1, X_test)
 
     print(f"[Stage-1]  nMAE={nMAE(y_test, preds, cap_t):.4f}  "
           f"nRMSE={nRMSE(y_test, preds, cap_t):.4f}")
@@ -95,37 +56,17 @@ def train_and_eval_stage1(train_df, calib_df, val_df, test_df):
     return s1, preds, y_test, X_test
 
 
-# ---------------------------------------------------------------------------
-# Coverage evaluation
-# ---------------------------------------------------------------------------
-
 def evaluate_coverage(s1_model, test_df, out_dir=_OUT_DIR):
-    """
-    Compute empirical P10–P90 coverage on the test set.
-
-    Expected coverage ≈ 80 % (alpha=0.2 in MAPIE).
-
-    Saves
-    -----
-    coverage_per_plant.png
-    coverage_per_season.png
-
-    Returns
-    -------
-    overall_coverage : float
-    """
     X_test, y_test = transform(test_df)
     _, p10, p90 = predict_stage1(s1_model, X_test, return_pis=True)
     y_arr = y_test.values
 
     covered = (y_arr >= p10) & (y_arr <= p90)
 
-    # ----- Overall -----------------------------------------------------------
     overall_coverage = float(np.mean(covered))
     print(f"[Coverage]  Overall P10–P90 coverage = {overall_coverage:.3f}  "
           f"(target ≈ 0.800)")
 
-    # ----- Per plant ---------------------------------------------------------
     test_meta = test_df.reset_index(drop=True)
     test_meta['covered'] = covered
 
@@ -138,10 +79,9 @@ def evaluate_coverage(s1_model, test_df, out_dir=_OUT_DIR):
     plant_cov.columns = ['plant_id', 'coverage']
 
     fig, ax = plt.subplots(figsize=(max(8, len(plant_cov) * 0.55), 5))
-    bars = ax.bar(plant_cov['plant_id'], plant_cov['coverage'],
-                  color='steelblue', edgecolor='white', linewidth=0.6)
-    ax.axhline(0.80, color='tomato', linestyle='--', linewidth=1.5,
-               label='Target 80 %')
+    ax.bar(plant_cov['plant_id'], plant_cov['coverage'],
+           color='steelblue', edgecolor='white', linewidth=0.6)
+    ax.axhline(0.80, color='tomato', linestyle='--', linewidth=1.5, label='Target 80 %')
     ax.axhline(overall_coverage, color='gold', linestyle='-', linewidth=1.5,
                label=f'Overall {overall_coverage:.1%}')
     ax.set_ylim(0, 1.05)
@@ -157,7 +97,6 @@ def evaluate_coverage(s1_model, test_df, out_dir=_OUT_DIR):
     plt.close(fig)
     print(f"  → Saved {plant_plot_path}")
 
-    # ----- Per season --------------------------------------------------------
     test_meta['season'] = test_meta['timestamp'].dt.month.map(_season)
 
     season_order = ['Spring', 'Summer', 'Autumn', 'Winter']
@@ -173,8 +112,7 @@ def evaluate_coverage(s1_model, test_df, out_dir=_OUT_DIR):
     fig, ax = plt.subplots(figsize=(7, 5))
     ax.bar(season_cov['season'], season_cov['coverage'],
            color=palette, edgecolor='white', linewidth=0.8, width=0.55)
-    ax.axhline(0.80, color='tomato', linestyle='--', linewidth=1.5,
-               label='Target 80 %')
+    ax.axhline(0.80, color='tomato', linestyle='--', linewidth=1.5, label='Target 80 %')
     ax.axhline(overall_coverage, color='gold', linestyle='-', linewidth=1.5,
                label=f'Overall {overall_coverage:.1%}')
     ax.set_ylim(0, 1.05)
@@ -192,20 +130,9 @@ def evaluate_coverage(s1_model, test_df, out_dir=_OUT_DIR):
     return overall_coverage
 
 
-# ---------------------------------------------------------------------------
-# Stage-2
-# ---------------------------------------------------------------------------
-
 def prepare_stage2_data(s1_model, df_slice, label):
-    """
-    Attach Stage-1 point predictions to df_slice, then call
-    build_stage2_training_data.
-
-    Note: predict_stage1 is called with return_pis=False so we get only
-    the P50 array — Stage-2 learns to correct the point forecast.
-    """
     X, _ = transform(df_slice)
-    s1_preds = predict_stage1(s1_model, X)      # P50 only, no PIs needed
+    s1_preds = predict_stage1(s1_model, X)
 
     enriched = df_slice[[
         'timestamp', 'plant_id', 'actual_generation_mw',
@@ -222,21 +149,11 @@ def prepare_stage2_data(s1_model, df_slice, label):
 def train_and_eval_stage2(s1_model, val_df, test_df):
     X2_train, y2_train = prepare_stage2_data(s1_model, val_df,  "train")
     X2_val,   y2_val   = prepare_stage2_data(s1_model, test_df, "val")
-
     s2 = train_stage2(X2_train, y2_train, X2_val, y2_val)
     return s2
 
 
-# ---------------------------------------------------------------------------
-# Intra-day evaluation
-# ---------------------------------------------------------------------------
-
 def eval_stage2_full(s1_model, s2_model, test_df):
-    """
-    For each (plant, day) in test_df, simulate intra-day update at hour 12
-    and collect corrected predictions for hours ≥ 12.
-    Compare Stage-1 vs Stage-2 on those future hours.
-    """
     test_df = test_df.copy()
     test_df['date'] = test_df['timestamp'].dt.date
 
@@ -269,33 +186,23 @@ def eval_stage2_full(s1_model, s2_model, test_df):
     return s1_nmae, s2_nmae
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
 def run(data_path):
     df = load_data(data_path)
 
-    # 4-way split: Train | Calib (3m) | Val (2m) | Test (2m)
     train_df, calib_df, val_df, test_df = temporal_split(
         df, calib_months=3, val_months=2, test_months=2
     )
 
-    # --- Stage 1 (MAPIE CQR) ---
     s1_model, test_preds, y_test, X_test = train_and_eval_stage1(
         train_df, calib_df, val_df, test_df
     )
 
-    # --- Coverage check ---
     evaluate_coverage(s1_model, test_df)
 
-    # --- Stage 2 ---
     s2_model = train_and_eval_stage2(s1_model, val_df, test_df)
 
-    # --- Intra-day evaluation ---
     eval_stage2_full(s1_model, s2_model, test_df)
 
-    # --- Save both models ---
     save_model(s1_model, os.path.join(_HERE, 'kredl_stage1.pkl'))
     save_model(s2_model, os.path.join(_HERE, 'kredl_stage2.pkl'))
     print("[Saved]  kredl_stage1.pkl  kredl_stage2.pkl")

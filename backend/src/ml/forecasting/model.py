@@ -5,12 +5,6 @@ import pandas as pd
 import lightgbm as lgb
 import joblib
 
-from mapie.regression import ConformalizedQuantileRegressor
-
-# ---------------------------------------------------------------------------
-# Silence MAPIE's "ill-sorted" INFO spam (harmless but extremely verbose)
-# ---------------------------------------------------------------------------
-       # root logger
 logging.getLogger().setLevel(logging.WARNING)
 logging.getLogger('mapie').setLevel(logging.WARNING)
 for name in logging.root.manager.loggerDict:
@@ -18,9 +12,8 @@ for name in logging.root.manager.loggerDict:
 logging.disable(logging.INFO)    
 warnings.filterwarnings('ignore', category=UserWarning)  
 
-# ---------------------------------------------------------------------------
-# Shared LightGBM hyper-parameters
-# ---------------------------------------------------------------------------
+from mapie.regression import ConformalizedQuantileRegressor
+
 _BASE_PARAMS = dict(
     n_estimators=500,
     learning_rate=0.05,
@@ -32,7 +25,6 @@ _BASE_PARAMS = dict(
     n_jobs=-1,
 )
 
-# Same knobs for the three quantile models; objective + alpha differ per model
 _QUANTILE_PARAMS = dict(
     n_estimators=500,
     learning_rate=0.05,
@@ -51,25 +43,25 @@ _CALLBACKS = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Stage 1: three quantile models + MAPIE CQR calibration
-# ---------------------------------------------------------------------------
+def _augment_cutout_events(X_train, y_train, multiplier=15):
+    if 'above_cutout' not in X_train.columns:
+        return X_train, y_train
+    mask = X_train['above_cutout'] == 1
+    if mask.sum() == 0:
+        return X_train, y_train
+    X_co = pd.concat([X_train[mask]] * multiplier, ignore_index=True)
+    y_co = pd.concat([y_train[mask]] * multiplier, ignore_index=True)
+    X_aug = pd.concat([X_train, X_co], ignore_index=True)
+    y_aug = pd.concat([y_train, y_co], ignore_index=True)
+    return (
+        X_aug.sample(frac=1, random_state=42).reset_index(drop=True),
+        y_aug.sample(frac=1, random_state=42).reset_index(drop=True),
+    )
+
 
 def train_stage1(X_train, y_train, X_calib, y_calib, X_val, y_val):
-    """
-    Train Stage-1: three LightGBM quantile regressors (P10 / P50 / P90)
-    then calibrate prediction intervals via MAPIE ConformalizedQuantileRegressor.
+    X_train, y_train = _augment_cutout_events(X_train, y_train, multiplier=15)
 
-    Parameters
-    ----------
-    X_train, y_train : training features / targets
-    X_calib, y_calib : held-out calibration set for MAPIE (3 months)
-    X_val,   y_val   : validation set for early stopping of each base model
-
-    Returns
-    -------
-    cqr : fitted ConformalizedQuantileRegressor
-    """
     def _fit_quantile(alpha_q, label):
         print(f"[Stage-1] Training {label} quantile model (alpha={alpha_q}) ...")
         m = lgb.LGBMRegressor(**_QUANTILE_PARAMS, alpha=alpha_q)
@@ -80,8 +72,6 @@ def train_stage1(X_train, y_train, X_calib, y_calib, X_val, y_val):
     m_p50 = _fit_quantile(0.5, "P50")
     m_p90 = _fit_quantile(0.9, "P90")
 
-    # calibrate — confidence_level=0.8 targets 80 % empirical coverage
-    # prefit=True tells MAPIE the models are already fitted
     print("[Stage-1] Calibrating prediction intervals with MAPIE ...")
     cqr = ConformalizedQuantileRegressor(
         estimator=[m_p10, m_p50, m_p90],
@@ -89,60 +79,35 @@ def train_stage1(X_train, y_train, X_calib, y_calib, X_val, y_val):
         prefit=True,
     )
     cqr.conformalize(X_calib, y_calib)
-
     return cqr
 
 
 def _predict_interval_clipped(cqr_model, X):
-    """
-    Call MAPIE predict_interval and clip crossed quantiles.
-
-    Independent quantile models can produce P10 > P50 or P90 < P50 on
-    individual rows.  MAPIE's conformalization step assumes monotonicity,
-    so crossing breaks the calibration math and reduces empirical coverage.
-
-    Fix: after getting raw bounds, enforce:
-        p10 = min(p10_raw, p50)   <- P10 can never exceed the median
-        p90 = max(p90_raw, p50)   <- P90 can never fall below the median
-
-    This restores empirical coverage to the target ~80 %.
-    """
     p50, pis = cqr_model.predict_interval(X)
-    p10_raw = pis[:, 0, 0]   # shape (n, 2, 1) -> squeeze
+    p10_raw = pis[:, 0, 0]
     p90_raw = pis[:, 1, 0]
 
-    p10 = np.minimum(p10_raw, p50)   # enforce P10 <= P50
-    p90 = np.maximum(p90_raw, p50)   # enforce P90 >= P50
+    p10 = np.minimum(p10_raw, p50)
+    p90 = np.maximum(p90_raw, p50)
+
+    if isinstance(X, pd.DataFrame) and 'above_cutout' in X.columns:
+        cutout_mask = X['above_cutout'].values > 0
+        if cutout_mask.any():
+            cap_proxy = X['capacity_mw'].values if 'capacity_mw' in X.columns else np.ones(len(X))
+            p50 = np.where(cutout_mask, 0.0, p50)
+            p10 = np.where(cutout_mask, 0.0, p10)
+            p90 = np.where(cutout_mask, cap_proxy * 0.05, p90)
 
     return p50, p10, p90
 
 
 def predict_stage1(cqr_model, X, return_pis=False):
-    """
-    Generate Stage-1 forecasts.
-
-    Parameters
-    ----------
-    cqr_model  : fitted ConformalizedQuantileRegressor from train_stage1
-    X          : feature matrix (pd.DataFrame or np.ndarray)
-    return_pis : if True  -> return (p50, p10, p90) as three np.ndarrays
-                 if False -> return only p50 (preserves Stage-2 compatibility)
-
-    Returns
-    -------
-    p50            : np.ndarray — median (P50) forecasts in MW
-    p10, p90       : np.ndarray — clipped lower / upper bounds in MW
-                     (only when return_pis=True)
-    """
     if return_pis:
         return _predict_interval_clipped(cqr_model, X)
-    else:
-        return cqr_model.predict(X)
+    p50, _, _ = _predict_interval_clipped(cqr_model, X)
+    return p50
 
 
-# ---------------------------------------------------------------------------
-# Stage-2 feature list (single source of truth)
-# ---------------------------------------------------------------------------
 _STAGE2_FEATURES = [
     'mean_recent_error',
     'std_recent_error',
@@ -157,27 +122,7 @@ _STAGE2_FEATURES = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Stage-2: build training data
-# ---------------------------------------------------------------------------
-
 def build_stage2_training_data(df_with_s1_pred):
-    """
-    Build the Stage-2 training set from a DataFrame that already has:
-        timestamp, plant_id, actual_generation_mw, s1_pred,
-        CMF, power_curve_fraction, capacity_mw,
-        lat_sin, lat_cos, lon_sin, lon_cos.
-
-    For every (plant_id, date) pair, simulates every possible intra-day
-    split point H = 1 … n-1:
-      elapsed   = hours 0 .. H-1  (actuals known)
-      remaining = hours H .. end  (hours to correct)
-
-    For each split, computes mean and std of Stage-1 errors over the last
-    ≤6 elapsed hours, then creates one training row per remaining hour.
-
-    Returns X2 (DataFrame) and y2 (Series).
-    """
     df = df_with_s1_pred.copy()
     df['date']        = df['timestamp'].dt.date
     df['hour_of_day'] = df['timestamp'].dt.hour
@@ -218,12 +163,7 @@ def build_stage2_training_data(df_with_s1_pred):
     return X2, y2
 
 
-# ---------------------------------------------------------------------------
-# Stage-2: train
-# ---------------------------------------------------------------------------
-
 def train_stage2(X2_train, y2_train, X2_val, y2_val):
-    """Train the residual-correction LightGBM model."""
     model = lgb.LGBMRegressor(**_BASE_PARAMS)
     model.fit(
         X2_train, y2_train,
@@ -233,20 +173,9 @@ def train_stage2(X2_train, y2_train, X2_val, y2_val):
     return model
 
 
-# ---------------------------------------------------------------------------
-# Stage-2: single-row inference
-# ---------------------------------------------------------------------------
-
 def predict_stage2(stage2_model, mean_recent_error, std_recent_error,
                    hour_of_day, CMF, power_curve_fraction,
                    capacity_mw, lat_sin, lat_cos, lon_sin, lon_cos):
-    """
-    Predict the error correction for a single remaining hour / plant.
-
-    Returns a scalar (MW) to add to the Stage-1 P50/P10/P90.
-    Shifting all three bounds by the same scalar preserves interval width
-    while re-centering the distribution on the corrected point estimate.
-    """
     row = pd.DataFrame([{
         'mean_recent_error':    mean_recent_error,
         'std_recent_error':     std_recent_error,
@@ -262,24 +191,8 @@ def predict_stage2(stage2_model, mean_recent_error, std_recent_error,
     return float(stage2_model.predict(row)[0])
 
 
-# ---------------------------------------------------------------------------
-# Intra-day update
-# ---------------------------------------------------------------------------
-
 def intraday_update(stage1_model, stage2_model, day_df, cutoff_hour):
-    """
-    Simulate intra-day recalibration at `cutoff_hour` (0-23).
-
-    day_df must contain for a single day, all plants:
-        timestamp, plant_id, actual_generation_mw (elapsed hours),
-        and all Stage-1 feature columns.
-
-    Returns a DataFrame with columns:
-        plant_id, hour_of_day, s1_pred, p10, p90,
-        correction, final_pred, final_p10, final_p90,
-        actual (NaN for future hours).
-    """
-    from src.ml.forecasting.feature_engineering import transform
+    from feature_engineering import transform
 
     day_df = day_df.copy()
     day_df['hour_of_day'] = day_df['timestamp'].dt.hour
@@ -337,31 +250,8 @@ def intraday_update(stage1_model, stage2_model, day_df, cutoff_hour):
     return pd.DataFrame(results)
 
 
-# ---------------------------------------------------------------------------
-# Public inference entry-point
-# ---------------------------------------------------------------------------
-
-def get_forecast(stage1_model, stage2_model, current_features_df,
-                 recent_actuals_df=None):
-    """
-    Produce a tidy forecast DataFrame with calibrated uncertainty bands.
-
-    Parameters
-    ----------
-    stage1_model        : fitted ConformalizedQuantileRegressor
-    stage2_model        : fitted LGBMRegressor (Stage-2). Pass None to skip.
-    current_features_df : DataFrame with all FEATURE_COLS plus
-                          'plant_id', 'timestamp', and the raw physics /
-                          metadata columns needed by predict_stage2.
-    recent_actuals_df   : optional DataFrame with columns
-                          ['plant_id', 'timestamp', 'actual_generation_mw']
-                          covering elapsed hours of the current day.
-
-    Returns
-    -------
-    pd.DataFrame with columns: plant_id | hour | p50 | p10 | p90  (MW)
-    """
-    from src.ml.forecasting.feature_engineering import transform, FEATURE_COLS as _FC
+def get_forecast(stage1_model, stage2_model, current_features_df, recent_actuals_df=None):
+    from feature_engineering import transform, FEATURE_COLS as _FC
 
     df = current_features_df.copy()
     df['hour_of_day'] = pd.to_datetime(df['timestamp']).dt.hour
@@ -373,7 +263,6 @@ def get_forecast(stage1_model, stage2_model, current_features_df,
     df['p10'] = p10
     df['p90'] = p90
 
-    # ----- Stage-2 correction (optional) ------------------------------------
     if stage2_model is not None and recent_actuals_df is not None:
         ra = recent_actuals_df.copy()
         ra['timestamp'] = pd.to_datetime(ra['timestamp'])
@@ -422,6 +311,7 @@ def get_forecast(stage1_model, stage2_model, current_features_df,
         columns={'hour_of_day': 'hour'}
     )
 
+
 def save_model(model, path):
     joblib.dump(model, path)
 
@@ -430,6 +320,5 @@ def load_model(path):
     return joblib.load(path)
 
 
-# Day-2 backward-compat aliases
 train   = train_stage1
 predict = predict_stage1
