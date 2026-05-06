@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, Printer } from 'lucide-react'
 import { PLANTS, plantMeta } from '../api/client'
+import { useLanguage } from '../context/LanguageContext'
 
 // ── Officers and note templates ─────────────────────────────────────────────
 const OFFICERS = ['R. Kumar', 'S. Patil', 'M. Hegde', 'A. Nair']
@@ -145,6 +146,7 @@ function Th({ children, col, sortCol, sortDir, onSort }) {
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function ForecastLedger() {
+  const { t } = useLanguage()
   const allRows = useMemo(() => generateLedgerData(), [])
 
   const [search, setSearch] = useState('')
@@ -221,7 +223,7 @@ export default function ForecastLedger() {
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint-text" />
             <input
               type="text"
-              placeholder="Search date, plant, officer, notes…"
+              placeholder={t('searchPlaceholder') || "Search date, plant, officer, notes…"}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-line bg-hover-bg py-2 pl-8 pr-3 text-[12px] text-main-text placeholder:text-faint-text outline-none focus:border-[#10b981] transition-colors"
@@ -232,7 +234,7 @@ export default function ForecastLedger() {
             onChange={(e) => setPlantFilter(e.target.value)}
             className="rounded-lg border border-line bg-hover-bg px-3 py-2 text-[12px] text-main-text outline-none focus:border-[#10b981] cursor-pointer"
           >
-            <option value="all">All Plants</option>
+            <option value="all">{t('allPlants') || 'All Plants'}</option>
             {PLANTS.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -243,7 +245,7 @@ export default function ForecastLedger() {
           className="no-print inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-[12px] font-medium text-muted-text transition-all hover:border-[#10b981] hover:text-[#10b981]"
         >
           <Printer className="h-3.5 w-3.5" />
-          Export for Audit Committee
+          {t('exportAudit') || 'Export for Audit Committee'}
         </button>
       </div>
 
@@ -252,13 +254,13 @@ export default function ForecastLedger() {
         <table className="w-full min-w-[860px] border-collapse text-[12px]">
           <thead>
             <tr className="bg-surface-bg">
-              <Th col="date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Date</Th>
-              <Th col="plant" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Plant</Th>
-              <Th col="forecastPeak" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Forecast Peak</Th>
-              <Th col="actualPeak" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Actual Peak</Th>
-              <Th col="errorPct" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Error %</Th>
-              <Th col="confidence" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>Confidence</Th>
-              <th className="w-full border-b border-line px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-faint-text">Notes</th>
+              <Th col="date" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>{t('date') || 'Date'}</Th>
+              <Th col="plant" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>{t('plant') || 'Plant'}</Th>
+              <Th col="forecastPeak" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>{t('forecastPeak') || 'Forecast Peak'}</Th>
+              <Th col="actualPeak" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>{t('actualPeak') || 'Actual Peak'}</Th>
+              <Th col="errorPct" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>{t('errorPct') || 'Error %'}</Th>
+              <Th col="confidence" sortCol={sortCol} sortDir={sortDir} onSort={handleSort}>{t('confidence') || 'Confidence'}</Th>
+              <th className="w-full border-b border-line px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-faint-text">{t('notes') || 'Notes'}</th>
             </tr>
           </thead>
           <tbody>
@@ -321,18 +323,18 @@ export default function ForecastLedger() {
             {/* ── Summary row ─────────────────────────────────────────────── */}
             <tr className="border-t-2 border-[#10b981]/30 bg-[#10b981]/5">
               <td colSpan={4} className="px-4 py-3 text-[11px] font-semibold text-[#10b981]">
-                Summary — {filtered.length} entries shown
+                {t('entriesShown', { count: filtered.length })}
               </td>
               <td className="px-4 py-3 text-[12px] font-bold" style={{ color: parseFloat(avgError) < 5 ? '#22c55e' : '#f59e0b' }}>
-                {avgError}% avg
+                {avgError}% {t('avg') || 'avg'}
               </td>
               <td colSpan={2} className="px-4 py-3 text-[11px] text-muted-text">
-                Best plant: <span className="font-medium text-main-text">{bestPlant}</span>
+                {t('bestPlant') || 'Best plant'}: <span className="font-medium text-main-text">{bestPlant}</span>
                 {' · '}
-                Most accurate day: <span className="font-medium text-main-text">{mostAccurateDay}</span>
+                {t('mostAccurateDay') || 'Most accurate day'}: <span className="font-medium text-main-text">{mostAccurateDay}</span>
                 {' · '}
                 <span className="font-semibold text-[#22c55e]">
-                  System accuracy over 14 days: {accuracyPct}% — exceeding 85% operational target
+                  {t('systemAccuracy') || 'System accuracy over 14 days'}: {accuracyPct}% — {t('operationalTarget') || 'exceeding 85% operational target'}
                 </span>
               </td>
             </tr>
@@ -343,7 +345,7 @@ export default function ForecastLedger() {
       {/* ── Empty state ───────────────────────────────────────────────────── */}
       {filtered.length === 0 && (
         <div className="mt-8 text-center text-sm text-faint-text">
-          No entries match your search.
+          {t('noEntriesMatch') || 'No entries match your search.'}
         </div>
       )}
     </div>

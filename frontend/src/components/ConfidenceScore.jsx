@@ -118,17 +118,17 @@ export default function ConfidenceScore({ p10, p90, capacityMw }) {
 
           {/* Scale labels */}
           <div className="flex justify-between text-[10px] font-medium tracking-wide" style={{ color: 'var(--faint-text, #5a5d72)' }}>
-            <span style={{ color: '#ef4444' }}>1 Low</span>
-            <span style={{ color: '#f59e0b' }}>5 Medium</span>
-            <span style={{ color: '#22c55e' }}>10 High</span>
+            <span style={{ color: '#ef4444' }}>1 {t('low')}</span>
+            <span style={{ color: '#f59e0b' }}>5 {t('medium')}</span>
+            <span style={{ color: '#22c55e' }}>10 {t('high')}</span>
           </div>
-
+ 
           {/* Legend dots */}
           <div className="mt-1 flex flex-wrap gap-4 text-[11px]" style={{ color: 'var(--muted-text, #8b8fa8)' }}>
             {[
-              { color: '#22c55e', label: '7-10 — Schedule tightly' },
-              { color: '#f59e0b', label: '4-6 — Hold reserve' },
-              { color: '#ef4444', label: '1-3 — Wait for update' },
+              { color: '#22c55e', label: `7-10 — ${t('scheduleTightly')}` },
+              { color: '#f59e0b', label: `4-6 — ${t('holdReserveLegend')}` },
+              { color: '#ef4444', label: `1-3 — ${t('waitForUpdateLegend')}` },
             ].map(({ color, label: l }) => (
               <span key={color} className="flex items-center gap-1.5">
                 <span

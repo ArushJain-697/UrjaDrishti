@@ -61,13 +61,13 @@ export default function AlertPanel({ plantId, p50, hours, onAlertsLoaded }) {
       {error && !alerts.length && !loading ? (
         <div className="px-4 pt-3">
           <p className="rounded-lg border border-[#ef4444]/50 bg-hover-bg px-3 py-2 text-[13px] text-muted-text">
-            Unable to load alerts.{' '}
+            {t('unableToLoadAlerts') || 'Unable to load alerts.'}{' '}
             <button
               type="button"
               onClick={load}
               className="text-emerald-500 underline hover:no-underline"
             >
-              Retry
+              {t('retry') || 'Retry'}
             </button>
           </p>
         </div>

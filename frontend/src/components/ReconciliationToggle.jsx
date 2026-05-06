@@ -73,7 +73,7 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
               mintEnabled ? 'translate-x-7' : 'translate-x-0'
             }`}
           >
-            <span className="text-[10px] font-bold text-[#111f17]">{mintEnabled ? 'ON' : 'OFF'}</span>
+            <span className="text-[10px] font-bold text-[#111f17]">{mintEnabled ? (t('on') || 'ON') : (t('off') || 'OFF')}</span>
           </span>
         </button>
       </div>
@@ -89,7 +89,7 @@ export default function ReconciliationToggle({ cluster, mintEnabled, onMintChang
             style={{ opacity: contentOpacity, transitionTimingFunction: 'ease' }}
           >
             {!view ? (
-              <p className="text-sm text-muted-text">No reconciliation data</p>
+              <p className="text-sm text-muted-text">{t('noReconciliationData') || 'No reconciliation data'}</p>
             ) : (
               <>
                 <div className="grid grid-cols-1 items-center gap-4 md:grid-cols-[1fr_auto_1fr]">

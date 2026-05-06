@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, CheckCircle, Activity, BarChart, ShieldAlert } from 'lucide-react'
 import LoadingSpinner from './LoadingSpinner'
 import { client, fetchFleetHardware, fetchSystemCalibration, PLANTS } from '../api/client'
+import { useLanguage } from '../context/LanguageContext'
 
 export default function ModelHealthPanel() {
+  const { t } = useLanguage()
   const [data, setData] = useState({ hardware: null, calibration: null })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -67,23 +69,23 @@ export default function ModelHealthPanel() {
         <div className={`p-5 rounded-xl border ${sysStatus?.includes('HEALTHY') ? 'bg-[#22c55e]/10 border-[#22c55e]/20' : 'bg-red-500/10 border-red-500/20'}`}>
           <div className="flex items-center gap-3 mb-2">
             <Activity className={sysStatus?.includes('HEALTHY') ? 'text-[#22c55e]' : 'text-red-500'} />
-            <h3 className="text-lg font-medium text-main-text">Hardware Fleet Status</h3>
+            <h3 className="text-lg font-medium text-main-text">{t('hardwareStatus')}</h3>
           </div>
           <p className="text-2xl font-bold mb-1" style={{ color: sysStatus?.includes('HEALTHY') ? '#22c55e' : '#ef4444' }}>
-            {sysStatus}
+            {sysStatus === 'HEALTHY' ? t('healthy') : sysStatus}
           </p>
-          <p className="text-sm text-muted-text">Monitoring via CQR Violations</p>
+          <p className="text-sm text-muted-text">{t('cqrMonitoring')}</p>
         </div>
 
         <div className={`p-5 rounded-xl border ${calStatus?.includes('CALIBRATED') ? 'bg-[#22c55e]/10 border-[#22c55e]/20' : 'bg-[#fbbf24]/10 border-[#fbbf24]/20'}`}>
           <div className="flex items-center gap-3 mb-2">
             <BarChart className={calStatus?.includes('CALIBRATED') ? 'text-[#22c55e]' : 'text-[#fbbf24]'} />
-            <h3 className="text-lg font-medium text-main-text">System Calibration</h3>
+            <h3 className="text-lg font-medium text-main-text">{t('systemCalibration')}</h3>
           </div>
           <p className="text-2xl font-bold mb-1" style={{ color: calStatus?.includes('CALIBRATED') ? '#22c55e' : '#fbbf24' }}>
-            {calStatus}
+            {calStatus === 'CALIBRATED' ? t('calibrated') : (calStatus === 'POORLY CALIBRATED' || calStatus === 'CALIBRATION ISSUES' ? t('calibrationIssues') : calStatus)}
           </p>
-          <p className="text-sm text-muted-text">Model uncertainty bounds validation</p>
+          <p className="text-sm text-muted-text">{t('calibrationDesc')}</p>
         </div>
       </div>
 
@@ -92,9 +94,9 @@ export default function ModelHealthPanel() {
         <table className="w-full min-w-[700px] border-collapse text-sm">
           <thead>
             <tr className="bg-surface-bg text-left text-[11px] font-medium uppercase tracking-[0.06em] text-faint-text">
-              <th className="border-b border-line px-4 py-3">Plant</th>
-              <th className="border-b border-line px-4 py-3">Hardware Diagnostics</th>
-              <th className="border-b border-line px-4 py-3">Calibration Status</th>
+              <th className="border-b border-line px-4 py-3">{t('plant')}</th>
+              <th className="border-b border-line px-4 py-3">{t('hardwareDiagnostics')}</th>
+              <th className="border-b border-line px-4 py-3">{t('calibrationStatus')}</th>
             </tr>
           </thead>
           <tbody>
@@ -112,7 +114,7 @@ export default function ModelHealthPanel() {
                         <div className="flex items-center gap-1.5">
                           {hp.anomaly ? <ShieldAlert className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-[#22c55e]" />}
                           <span className={hp.anomaly ? 'text-red-500 font-medium' : 'text-[#22c55e]'}>
-                            {hp.severity === 'none' ? 'Normal' : hp.severity.toUpperCase()}
+                            {hp.severity === 'none' ? t('normal') : hp.severity.toUpperCase()}
                           </span>
                         </div>
                         <span className="text-[11px] text-muted-text">{hp.recommendation}</span>
@@ -124,11 +126,11 @@ export default function ModelHealthPanel() {
                     {cp ? (
                       <div className="flex flex-col gap-1">
                         <span className={cp.is_calibrated ? 'text-[#22c55e] font-medium' : 'text-[#fbbf24] font-medium'}>
-                          {cp.calibration_status}
+                          {cp.calibration_status === 'POORLY CALIBRATED' ? t('poorlyCalibrated') : cp.calibration_status}
                         </span>
                         {cp.calibration_results && cp.calibration_results['0.5'] && (
                           <span className="text-[11px] text-muted-text">
-                            P50 Cov: {Math.round(cp.calibration_results['0.5'].observed_coverage * 100)}%
+                            {t('p50Cov')}: {Math.round(cp.calibration_results['0.5'].observed_coverage * 100)}%
                           </span>
                         )}
                       </div>

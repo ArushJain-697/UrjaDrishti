@@ -117,7 +117,7 @@ export default function EvaluationView() {
           className="flex items-center gap-2 rounded-lg bg-[#22c55e]/10 border border-[#22c55e]/20 px-4 py-2 text-sm font-medium text-[#22c55e] transition-colors hover:bg-[#22c55e]/20"
         >
           <Download className="h-4 w-4" />
-          Download Report
+          {t('downloadReport') || 'Download Report'}
         </button>
       </div>
 
@@ -133,7 +133,7 @@ export default function EvaluationView() {
           }`}
         >
           <BarChart2 className="h-4 w-4" />
-          Performance Metrics
+          {t('performanceMetrics') || 'Performance Metrics'}
         </button>
         <button
           type="button"
@@ -145,7 +145,7 @@ export default function EvaluationView() {
           }`}
         >
           <ClipboardList className="h-4 w-4" />
-          Forecast Ledger
+          {t('forecastLedger') || 'Forecast Ledger'}
         </button>
         <button
           type="button"
@@ -157,7 +157,7 @@ export default function EvaluationView() {
           }`}
         >
           <Activity className="h-4 w-4" />
-          Model Health
+          {t('modelHealth') || 'Model Health'}
         </button>
       </div>
 

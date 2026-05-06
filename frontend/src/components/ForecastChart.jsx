@@ -10,8 +10,9 @@ import {
   YAxis,
 } from 'recharts'
 import { plantMeta } from '../api/client'
+import { useLanguage } from '../context/LanguageContext'
 
-function ChartTooltip({ active, payload, label, lineColor = '#10b981', showYesterday }) {
+function ChartTooltip({ active, payload, label, lineColor = '#10b981', showYesterday, t }) {
   if (!active || !payload?.length) return null
   const row = payload[0]?.payload
   if (!row) return null
@@ -23,17 +24,17 @@ function ChartTooltip({ active, payload, label, lineColor = '#10b981', showYeste
   return (
     <div className="rounded-lg border border-line bg-hover-bg px-3 py-2 text-xs shadow-lg">
       <p className="mb-1 font-medium text-main-text">
-        {hh}:00 <span className="text-faint-text">IST</span>
+        {hh}:00 <span className="text-faint-text">{t('ist') || 'IST'}</span>
       </p>
       <p style={{ color: lineColor }}>P50: {p50.toFixed(1)} MW</p>
       <p className="text-muted-text">P10: {p10.toFixed(1)} MW</p>
       <p className="text-muted-text">P90: {p90.toFixed(1)} MW</p>
-      <p className="mt-1 text-[11px] text-faint-text">Interval width: {w.toFixed(1)} MW</p>
+      <p className="mt-1 text-[11px] text-faint-text">{t('intervalWidth') || 'Interval width'}: {w.toFixed(1)} MW</p>
       {showYesterday && yForecast != null && (
         <div className="mt-1 border-t border-line pt-1">
-          <p className="text-[11px] text-[#5a5d72]">Yesterday forecast: {yForecast.toFixed(1)} MW</p>
+          <p className="text-[11px] text-[#5a5d72]">{t('yesterdayForecast') || 'Yesterday forecast'}: {yForecast.toFixed(1)} MW</p>
           {yActual != null && (
-            <p className="text-[11px] text-[#22c55e]">Yesterday actual: {yActual.toFixed(1)} MW</p>
+            <p className="text-[11px] text-[#22c55e]">{t('yesterdayActual') || 'Yesterday actual'}: {yActual.toFixed(1)} MW</p>
           )}
         </div>
       )}
@@ -61,6 +62,7 @@ export default function ForecastChart({
   yesterdayActuals = null,
   className = '',
 }) {
+  const { t } = useLanguage()
   const meta = plantMeta(plantId)
   const lineColor = meta.type === 'wind' ? '#34d399' : '#10b981'
   const bandFill =
@@ -120,7 +122,7 @@ export default function ForecastChart({
             />
             <Tooltip
               content={(tipProps) => (
-                <ChartTooltip {...tipProps} lineColor={lineColor} showYesterday={showYesterday} />
+                <ChartTooltip {...tipProps} lineColor={lineColor} showYesterday={showYesterday} t={t} />
               )}
               cursor={{ stroke: 'var(--line)', strokeOpacity: 0.6 }}
             />
@@ -189,7 +191,7 @@ export default function ForecastChart({
                 stroke="#f59e0b"
                 strokeDasharray="4 4"
                 label={{
-                  value: 'Now',
+                  value: t('now') || 'Now',
                   position: 'top',
                   fill: '#f59e0b',
                   fontSize: 11,
@@ -206,7 +208,7 @@ export default function ForecastChart({
           <div className="flex flex-wrap items-center gap-4 text-[11px]">
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-0.5 w-5 rounded" style={{ background: lineColor }} />
-              <span className="text-muted-text">Today P50</span>
+              <span className="text-muted-text">{t('todayP50') || 'Today P50'}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span
@@ -214,18 +216,18 @@ export default function ForecastChart({
                 style={{ background: '#5a5d72', borderTop: '2px dashed #5a5d72', height: 0 }}
               />
               <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#5a5d72" strokeWidth="2" strokeDasharray="4 4"/></svg>
-              <span className="text-muted-text">Yesterday forecast</span>
+              <span className="text-muted-text">{t('yesterdayForecast') || 'Yesterday forecast'}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#22c55e" strokeWidth="2" strokeDasharray="2 4"/></svg>
-              <span className="text-muted-text">Yesterday actuals</span>
+              <span className="text-muted-text">{t('yesterdayActual') || 'Yesterday actuals'}</span>
             </span>
             {accuracy && (
               <span
                 className="ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
                 style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e' }}
               >
-                Yesterday: {accuracy}% accurate — {peakErr} MW off at peak
+                {t('yesterday') || 'Yesterday'}: {accuracy}% {t('accurate') || 'accurate'} — {peakErr} MW {t('offAtPeak') || 'off at peak'}
               </span>
             )}
           </div>

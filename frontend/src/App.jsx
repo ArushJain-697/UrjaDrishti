@@ -112,7 +112,7 @@ export default function App() {
               style={{ color: '#ff5252' }}
             >
               <Monitor className="h-3.5 w-3.5" aria-hidden />
-              War Room
+              {t('warRoom') || 'War Room'}
             </button>
           </div>
         </div>

@@ -29,13 +29,13 @@ const BAR_COLORS = {
 
 const PLANT_NAMES = Object.fromEntries(PLANTS.map((p) => [p.id, p.name]))
 
-function ClusterTooltip({ active, payload, label }) {
+function ClusterTooltip({ active, payload, label, t }) {
   if (!active || !payload?.length) return null
   const h = Number(label)
   const hh = String(h).padStart(2, '0')
   return (
     <div className="rounded-lg border border-line bg-hover-bg px-3 py-2 text-xs shadow-lg">
-      <p className="mb-2 font-medium text-main-text">{hh}:00 IST</p>
+      <p className="mb-2 font-medium text-main-text">{hh}:00 {t('ist') || 'IST'}</p>
       <ul className="space-y-1">
         {payload.map((p) => (
           <li key={p.dataKey} className="flex justify-between gap-4 text-muted-text">
@@ -171,7 +171,7 @@ export default function ClusterView() {
                   width={44}
                 />
                 <Tooltip
-                  content={<ClusterTooltip />}
+                  content={<ClusterTooltip t={t} />}
                   cursor={{ fill: 'rgba(59,130,246,0.06)' }}
                 />
                 <Legend

@@ -41,7 +41,7 @@ function scenarioFactor(scenario) {
 }
 
 export default function PlantView() {
-  const { t } = useLanguage()
+  const { lang, t } = useLanguage()
   const [selectedPlant, setSelectedPlant] = useState('PVG_S1')
   const [rawForecast, setRawForecast] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -199,7 +199,7 @@ export default function PlantView() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium text-muted-text transition-all duration-200 hover:border-[#10b981] hover:text-[#10b981] disabled:opacity-40"
             >
               <History className="h-3.5 w-3.5" aria-hidden />
-              {showYesterday ? "Hide Yesterday's Performance" : "Show Yesterday's Performance"}
+              {showYesterday ? t('hideYesterday') : t('showYesterday')}
             </button>
           </div>
           <div className="relative mt-4">
@@ -231,7 +231,7 @@ export default function PlantView() {
             <span>
               {t('lastUpdated')}:{' '}
               {lastUpdated
-                ? lastUpdated.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+                ? lastUpdated.toLocaleString(lang === 'kn' ? 'kn-IN' : 'en-IN', { timeZone: 'Asia/Kolkata' })
                 : '—'}
             </span>
             <span className="inline-flex items-center gap-2">

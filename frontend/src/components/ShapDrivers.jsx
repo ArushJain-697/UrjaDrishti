@@ -17,7 +17,7 @@ export default function ShapDrivers({ alerts }) {
         <h3 className="text-sm font-medium tracking-tight text-main-text">
           {t('shapDriversTitle') || `Key Forecast Drivers (${String(alertWithDrivers.hour).padStart(2, '0')}:00)`}
         </h3>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-faint-text">SHAP Values</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-faint-text">{t('shapValues') || 'SHAP Values'}</span>
       </div>
       
       <div className="flex flex-col gap-3">
@@ -29,7 +29,7 @@ export default function ShapDrivers({ alerts }) {
           return (
             <div key={`${d.feature}-${i}`} className="flex items-center gap-3 text-xs">
               <span className="w-28 truncate text-right font-medium text-muted-text" title={d.feature}>
-                {d.feature.replace(/_/g, ' ')}
+                {t('features')[d.feature] || d.feature.replace(/_/g, ' ')}
               </span>
               
               <div className="relative flex h-5 flex-1 items-center bg-hover-bg/50 rounded-sm">

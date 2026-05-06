@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { X, AlertTriangle, CheckCircle, Info, RefreshCw } from 'lucide-react'
 import { PLANTS, plantMeta, fetchForecast, fetchAlerts } from '../api/client'
+import { useLanguage } from '../context/LanguageContext'
 
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ function AIcon({ type }) {
 }
 
 // ── Plant card ───────────────────────────────────────────────────────────────
-function PlantCard({ plant, forecast, alerts, loading }) {
+function PlantCard({ plant, forecast, alerts, loading, t, lang }) {
   const [hov, setHov] = useState(false)
   const meta = plantMeta(plant.id)
 
@@ -122,7 +123,7 @@ function PlantCard({ plant, forecast, alerts, loading }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
           <span style={{ fontSize: 9, letterSpacing: '0.14em', color: C.textMut, textTransform: 'uppercase' }}>{plant.id}</span>
           <span style={{ fontSize: 8, padding: '1px 5px', border: `1px solid ${C.line}`, borderRadius: 3, color: C.textSec, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            CLU-{meta.cluster}
+            {lang === 'kn' ? 'ಕ್ಲಸ್ಟರ್' : 'CLU'}-{meta.cluster}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -145,7 +146,7 @@ function PlantCard({ plant, forecast, alerts, loading }) {
       {/* Bottom stats */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <span style={{ fontSize: 10, color: C.textMut, letterSpacing: '0.06em' }}>P50 NOW</span>
+          <span style={{ fontSize: 10, color: C.textMut, letterSpacing: '0.06em' }}>{t('p50Now')}</span>
           <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: C.aTeal }}>{p50.toFixed(1)} MW</span>
         </div>
         <div style={{ fontSize: 10, color: C.textMut, textAlign: 'right' }}>
@@ -155,7 +156,17 @@ function PlantCard({ plant, forecast, alerts, loading }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, paddingTop: 4, borderTop: `1px solid ${C.line}` }}>
             <AIcon type={alert0.type} />
             <span style={{ fontSize: 9.5, color: C.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-              {(alert0.message ?? '').replace(/^[\p{Emoji}\s]+/u, '').slice(0, 60)}
+              {(() => {
+                const templates = t('alertTemplates');
+                if (templates && alert0.template && templates[alert0.template]) {
+                  const impactMatch = alert0.message.match(/~([\d\.]+)%/);
+                  const impact = impactMatch ? impactMatch[1] : '';
+                  return templates[alert0.template]
+                    .replace('{hour}', String(alert0.hour).padStart(2, '0'))
+                    .replace('{impact}', impact);
+                }
+                return (alert0.message ?? '').replace(/^[\p{Emoji}\s]+/u, '').slice(0, 60);
+              })()}
             </span>
           </div>
         )}
@@ -170,17 +181,17 @@ function PlantCard({ plant, forecast, alerts, loading }) {
 }
 
 // ── Live IST clock ────────────────────────────────────────────────────────────
-function Clock() {
-  const [t, setT] = useState('')
+function Clock({ lang }) {
+  const [tStr, setTStr] = useState('')
   useEffect(() => {
-    const tick = () => setT(new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }))
+    const tick = () => setTStr(new Date().toLocaleTimeString(lang === 'kn' ? 'kn-IN' : 'en-IN', { timeZone: 'Asia/Kolkata', hour12: false }))
     tick(); const id = setInterval(tick, 1000); return () => clearInterval(id)
-  }, [])
-  return <span style={{ fontFamily: 'monospace', fontSize: 26, fontWeight: 700, color: C.aGreen, letterSpacing: '0.05em', textShadow: `0 0 10px ${C.aGreen}88` }}>{t}</span>
+  }, [lang])
+  return <span style={{ fontFamily: 'monospace', fontSize: 26, fontWeight: 700, color: C.aGreen, letterSpacing: '0.05em', textShadow: `0 0 10px ${C.aGreen}88` }}>{tStr}</span>
 }
 
 // ── Countdown + progress bar ──────────────────────────────────────────────────
-function Countdown({ total, onRefresh }) {
+function Countdown({ total, onRefresh, t }) {
   const [r, setR] = useState(total)
   useEffect(() => {
     setR(total)
@@ -189,7 +200,7 @@ function Countdown({ total, onRefresh }) {
   }, [total, onRefresh])
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-      <span style={{ fontSize: 9, color: C.textMut, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Next refresh {r}s</span>
+      <span style={{ fontSize: 9, color: C.textMut, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{t('nextRefresh')} {r}s</span>
       <div style={{ width: 72, height: 2, background: C.line, borderRadius: 1 }}>
         <div style={{ height: '100%', borderRadius: 1, background: C.aTeal, width: `${(r / total) * 100}%`, transition: 'width 1s linear' }} />
       </div>
@@ -209,6 +220,7 @@ function Pill({ label, value, color }) {
 
 // ── Main WarRoomView ──────────────────────────────────────────────────────────
 export default function WarRoomView({ onExit }) {
+  const { lang, t } = useLanguage()
   const [forecasts, setForecasts] = useState({})
   const [alerts, setAlerts]       = useState({})
   const [loading, setLoading]     = useState(new Set(PLANTS.map(p => p.id)))
@@ -323,26 +335,26 @@ export default function WarRoomView({ onExit }) {
         {/* Center title */}
         <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', textAlign: 'center' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.textPri }}>
-            WAR ROOM <span style={{ color: C.aGreen }}>—</span> LIVE GRID MONITOR
+            {t('warRoomHeader')}
           </div>
           {usingMock ? (
             <div style={{ fontSize: 9, color: C.aAmber, letterSpacing: '0.1em', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
               <RefreshCw size={8} style={{ animation: 'war-live-pulse 1s linear infinite' }} />
-              {fetchError ? `ERR: ${fetchError.slice(0, 60)}` : 'RETRYING — CONNECTING TO BACKEND'}
+              {fetchError ? `ERR: ${fetchError.slice(0, 60)}` : t('connectingToBackend')}
             </div>
           ) : (
             <div style={{ fontSize: 9, color: C.textMut, letterSpacing: '0.12em', marginTop: 2 }}>
-              KARNATAKA RENEWABLE ENERGY · 6 PLANTS · 2 CLUSTERS
+              {t('warRoomSubheader')}
             </div>
           )}
         </div>
 
         {/* Right */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Clock />
+          <Clock lang={lang} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: C.aGreen, boxShadow: `0 0 6px ${C.aGreen}`, animation: 'war-live-pulse 1.5s ease-in-out infinite' }} />
-            <span style={{ fontSize: 10, color: C.aGreen, fontWeight: 800, letterSpacing: '0.12em' }}>LIVE</span>
+            <span style={{ fontSize: 10, color: C.aGreen, fontWeight: 800, letterSpacing: '0.12em' }}>{t('live') || 'LIVE'}</span>
           </div>
           <button
             onClick={onExit}
@@ -350,7 +362,7 @@ export default function WarRoomView({ onExit }) {
             onMouseEnter={e => { e.currentTarget.style.borderColor = C.aRed; e.currentTarget.style.color = C.aRed }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.textMut }}
           >
-            <X size={11} /> EXIT WAR ROOM
+            <X size={11} /> {t('exitWarRoom')}
           </button>
         </div>
       </div>
@@ -364,21 +376,23 @@ export default function WarRoomView({ onExit }) {
             forecast={forecasts[p.id]}
             alerts={alerts[p.id]}
             loading={loading.has(p.id)}
+            t={t}
+            lang={lang}
           />
         ))}
       </div>
 
       {/* ── Bottom bar ── */}
       <div style={{ height: 44, background: C.bar, borderTop: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '0 20px', flexShrink: 0, gap: 4 }}>
-        <Pill label="Cluster A Total" value={`${clusterTotals.A} MW`} color={C.aTeal} />
+        <Pill label={t('clusterATotal')} value={`${clusterTotals.A} MW`} color={C.aTeal} />
         <div style={{ width: 1, height: 20, background: C.line }} />
-        <Pill label="Cluster B Total" value={`${clusterTotals.B} MW`} color={C.aTeal} />
+        <Pill label={t('clusterBTotal')} value={`${clusterTotals.B} MW`} color={C.aTeal} />
         <div style={{ width: 1, height: 20, background: C.line }} />
-        <Pill label="Carbon Avoided" value={`${carbon} t CO₂`} color={C.aGreen} />
+        <Pill label={t('carbonAvoided')} value={`${carbon} t CO₂`} color={C.aGreen} />
         <div style={{ width: 1, height: 20, background: C.line }} />
-        <Pill label="Last Updated" value={lastUpd ?? '—'} color={C.textSec} />
+        <Pill label={t('lastUpdated')} value={lastUpd ?? '—'} color={C.textSec} />
         <div style={{ width: 1, height: 20, background: C.line }} />
-        <Countdown total={60} onRefresh={fetchAll} />
+        <Countdown total={60} onRefresh={fetchAll} t={t} />
       </div>
     </div>
   )
