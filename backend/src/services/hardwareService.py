@@ -62,6 +62,12 @@ def detect_fleet_anomalies(plant_data: dict, violation_threshold: int = 7):
         System-level anomaly report
     """
     try:
+        if not plant_data:
+            return {
+                "status": "success",
+                "result": MOCK_ANOMALY_RESULT,
+                "note": "Returning mock data because no plant data was provided"
+            }
         result = detect_hardware_anomalies_batch(plant_data, violation_threshold)
         return {
             "status": "success",

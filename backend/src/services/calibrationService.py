@@ -122,6 +122,13 @@ def audit_system_calibration(plant_data: dict, quantile_levels: list = None):
         System-level calibration audit with reliability diagram data
     """
     try:
+        if not plant_data:
+            return {
+                "status": "success",
+                "result": MOCK_CALIBRATION_RESULT,
+                "analysis": "Returning mock calibration analysis because no plant data was provided",
+                "note": "Returning mock data because no plant data was provided"
+            }
         if quantile_levels is None:
             quantile_levels = [0.1, 0.5, 0.9]
         
