@@ -53,7 +53,8 @@ def get_historical_sample(date_str: str) -> dict:
     import pandas as pd
     import numpy as np
     import joblib
-    from src.ml.forecasting.predict import _STAGE1_PATH, _FEATURE_COLS
+    from src.ml.forecasting.predict import _STAGE1_PATH
+    from src.ml.forecasting.feature_engineering import FEATURE_COLS
     
     # 1. Load historical dataset
     csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'data', 'feature_matrix_final.csv')
@@ -74,7 +75,7 @@ def get_historical_sample(date_str: str) -> dict:
         
     # 2. Encode features exactly as expected by model
     day_df['plant_type_enc'] = day_df['plant_type'].apply(lambda x: 0.0 if x == 'solar' else 1.0)
-    X = day_df[_FEATURE_COLS]
+    X = day_df[FEATURE_COLS]
     
     # 3. Load model and predict
     try:
