@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { X, AlertTriangle, CheckCircle, Info, RefreshCw } from 'lucide-react'
-import { PLANTS, plantMeta, fetchForecast, fetchAlerts } from '../api/client'
+import { PLANTS, plantMeta, fetchForecast, fetchAlerts, plantDisplayName } from '../api/client'
 import { useLanguage } from '../context/LanguageContext'
 
 
@@ -127,7 +127,9 @@ function PlantCard({ plant, forecast, alerts, loading, t, lang }) {
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.textPri, lineHeight: 1.2 }}>{meta.name}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.textPri, lineHeight: 1.2 }}>
+            {plantDisplayName(meta, lang)}
+          </span>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: meta.type === 'solar' ? '#3b82f6' : '#a78bfa', boxShadow: `0 0 4px ${meta.type === 'solar' ? '#3b82f6' : '#a78bfa'}`, flexShrink: 0 }} />
         </div>
       </div>

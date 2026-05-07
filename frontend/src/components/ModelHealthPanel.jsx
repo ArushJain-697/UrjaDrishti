@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, CheckCircle, Activity, BarChart, ShieldAlert } from 'lucide-react'
 import LoadingSpinner from './LoadingSpinner'
-import { client, fetchFleetHardware, fetchSystemCalibration, PLANTS } from '../api/client'
+import { client, fetchFleetHardware, fetchSystemCalibration, PLANTS, plantDisplayName } from '../api/client'
 import { useLanguage } from '../context/LanguageContext'
 
 export default function ModelHealthPanel() {
-  const { t } = useLanguage()
+  const { lang, t } = useLanguage()
   const [data, setData] = useState({ hardware: null, calibration: null })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -59,8 +59,9 @@ export default function ModelHealthPanel() {
   const hwPlants = hwResult.plants || {}
   const calPlants = calResult.plants || {}
 
-  const sysStatus = hwResult.summary?.system_status || hwResult.system_status || 'UNKNOWN';
-  const calStatus = calResult.summary?.status || calResult.status || 'UNKNOWN';
+  const sysStatus = hwResult.summary?.system_status || hwResult.system_status || 'UNKNOWN'
+  const calStatus = calResult.summary?.status || calResult.status || 'UNKNOWN'
+  const unknownLabel = lang === 'kn' ? 'ಅಜ್ಞಾತ' : 'UNKNOWN'
 
   return (
     <div className="mt-8 space-y-6">
@@ -72,7 +73,7 @@ export default function ModelHealthPanel() {
             <h3 className="text-lg font-medium text-main-text">{t('hardwareStatus')}</h3>
           </div>
           <p className="text-2xl font-bold mb-1" style={{ color: sysStatus?.includes('HEALTHY') ? '#22c55e' : '#ef4444' }}>
-            {sysStatus === 'HEALTHY' ? t('healthy') : sysStatus}
+            {sysStatus === 'HEALTHY' ? t('healthy') : (sysStatus === 'UNKNOWN' ? unknownLabel : sysStatus)}
           </p>
           <p className="text-sm text-muted-text">{t('cqrMonitoring')}</p>
         </div>
@@ -83,7 +84,11 @@ export default function ModelHealthPanel() {
             <h3 className="text-lg font-medium text-main-text">{t('systemCalibration')}</h3>
           </div>
           <p className="text-2xl font-bold mb-1" style={{ color: calStatus?.includes('CALIBRATED') ? '#22c55e' : '#fbbf24' }}>
-            {calStatus === 'CALIBRATED' ? t('calibrated') : (calStatus === 'POORLY CALIBRATED' || calStatus === 'CALIBRATION ISSUES' ? t('calibrationIssues') : calStatus)}
+            {calStatus === 'CALIBRATED'
+              ? (t('calibrated') || 'CALIBRATED')
+              : (calStatus === 'POORLY CALIBRATED' || calStatus === 'CALIBRATION ISSUES'
+                  ? t('calibrationIssues')
+                  : (calStatus === 'UNKNOWN' ? unknownLabel : calStatus))}
           </p>
           <p className="text-sm text-muted-text">{t('calibrationDesc')}</p>
         </div>
@@ -106,7 +111,7 @@ export default function ModelHealthPanel() {
               
               return (
                 <tr key={p.id} className="border-b border-line hover:bg-surface-bg transition-colors">
-                  <td className="px-4 py-3 font-medium text-main-text">{p.name}</td>
+                  <td className="px-4 py-3 font-medium text-main-text">{plantDisplayName(p, lang)}</td>
                   
                   <td className="px-4 py-3">
                     {hp ? (

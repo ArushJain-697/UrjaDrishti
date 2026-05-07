@@ -5,6 +5,7 @@ import {
   fetchIntradayForecast,
   formatMw,
   mockYesterdayData,
+  plantDisplayName,
   plantMeta,
 } from '../api/client'
 import PlantSelector from '../components/PlantSelector.jsx'
@@ -245,7 +246,7 @@ export default function PlantView() {
               ) : null}
             </span>
             <span className="text-faint-text">
-              {meta.name} · {formatMw(meta.capacityMw)} MW ({meta.type})
+              {plantDisplayName(meta, lang)} · {formatMw(meta.capacityMw)} MW ({meta.type})
             </span>
           </div>
         </div>

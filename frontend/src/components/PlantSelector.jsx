@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { PLANTS } from '../api/client'
+import { PLANTS, plantDisplayName } from '../api/client'
 import { useLanguage } from '../context/LanguageContext.jsx'
 
 function Dot({ type }) {
@@ -15,7 +15,7 @@ function Dot({ type }) {
 }
 
 export default function PlantSelector({ value, onChange, className = '' }) {
-  const { t } = useLanguage()
+  const { lang, t } = useLanguage()
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const listId = useId()
@@ -47,7 +47,7 @@ export default function PlantSelector({ value, onChange, className = '' }) {
         <span className="flex min-w-0 items-center gap-2">
           <Dot type={selected.type} />
           <span className="truncate">
-            {selected.id} — {selected.name} — {selected.capacityMw.toFixed(1)} MW
+            {selected.id} — {plantDisplayName(selected, lang)} — {selected.capacityMw.toFixed(1)} MW
           </span>
         </span>
         <ChevronDown
@@ -85,7 +85,7 @@ export default function PlantSelector({ value, onChange, className = '' }) {
                       >
                         <Dot type={p.type} />
                         <span className="truncate">
-                          {p.id} — {p.name} — {p.capacityMw.toFixed(1)} MW
+                          {p.id} — {plantDisplayName(p, lang)} — {p.capacityMw.toFixed(1)} MW
                         </span>
                       </button>
                     </li>

@@ -142,6 +142,8 @@ export const translations = {
       nwp_spread: "NWP Spread",
       cloud_modification_factor: "Cloud Modification Factor",
       temperature_c: "Temperature (°C)",
+      hour_sin: "Hour (sin)",
+      hour_cos: "Hour (cos)",
       ghi_w_m2: "Global Horizontal Irradiance",
       wind_speed_ms: "Wind Speed (m/s)",
       wind_direction_deg: "Wind Direction (°)"
@@ -309,6 +311,8 @@ export const translations = {
       nwp_spread: "ಎನ್‌ಡಬ್ಲ್ಯೂಪಿ ಹರಡುವಿಕೆ",
       cloud_modification_factor: "ಮೋಡದ ಮಾರ್ಪಾಡು ಅಂಶ",
       temperature_c: "ತಾಪಮಾನ (°C)",
+      hour_sin: "ಗಂಟೆ (ಸೈನ್)",
+      hour_cos: "ಗಂಟೆ (ಕೋಸೈನ್)",
       ghi_w_m2: "ಜಾಗತಿಕ ಸಮತಲ ವಿಕಿರಣ",
       wind_speed_ms: "ಗಾಳಿಯ ವೇಗ (ಮೀ/ಸೆ)",
       wind_direction_deg: "ಗಾಳಿಯ ದಿಕ್ಕು (°)"

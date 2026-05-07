@@ -2,6 +2,19 @@ import { useLanguage } from '../context/LanguageContext.jsx'
 
 export default function ShapDrivers({ alerts }) {
   const { t } = useLanguage()
+  const localizedFeature = (featureKey) => {
+    const featureMap = t('features') || {}
+    if (featureMap[featureKey]) return featureMap[featureKey]
+    const aliases = {
+      CMF: 'cloud_modification_factor',
+      temperature: 'temperature_c',
+      hour_sin: 'hour_sin',
+      hour_cos: 'hour_cos',
+    }
+    const aliasKey = aliases[featureKey]
+    if (aliasKey && featureMap[aliasKey]) return featureMap[aliasKey]
+    return featureKey.replace(/_/g, ' ')
+  }
   
   if (!alerts || alerts.length === 0) return null
   
@@ -29,7 +42,7 @@ export default function ShapDrivers({ alerts }) {
           return (
             <div key={`${d.feature}-${i}`} className="flex items-center gap-3 text-xs">
               <span className="w-28 truncate text-right font-medium text-muted-text" title={d.feature}>
-                {t('features')[d.feature] || d.feature.replace(/_/g, ' ')}
+                {localizedFeature(d.feature)}
               </span>
               
               <div className="relative flex h-5 flex-1 items-center bg-hover-bg/50 rounded-sm">

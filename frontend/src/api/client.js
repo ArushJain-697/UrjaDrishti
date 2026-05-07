@@ -12,14 +12,14 @@ export const client = axios.create({
 
 /** @typedef {'solar' | 'wind'} PlantType */
 
-/** @type {Array<{ id: string, name: string, capacityMw: number, cluster: 'A' | 'B', type: PlantType }>} */
+/** @type {Array<{ id: string, name: string, nameKn: string, capacityMw: number, cluster: 'A' | 'B', type: PlantType }>} */
 export const PLANTS = [
-  { id: 'PVG_S1', name: 'Pavagada Solar 1', capacityMw: 150, cluster: 'A', type: 'solar' },
-  { id: 'PVG_S2', name: 'Pavagada Solar 2', capacityMw: 120, cluster: 'A', type: 'solar' },
-  { id: 'MIX_S1', name: 'Chitradurga Solar', capacityMw: 90, cluster: 'A', type: 'solar' },
-  { id: 'GAD_W1', name: 'Gadag Wind 1', capacityMw: 100, cluster: 'B', type: 'wind' },
-  { id: 'GAD_W2', name: 'Gadag Wind 2', capacityMw: 80, cluster: 'B', type: 'wind' },
-  { id: 'MIX_W1', name: 'Raichur Wind', capacityMw: 60, cluster: 'B', type: 'wind' },
+  { id: 'PVG_S1', name: 'Pavagada Solar 1', nameKn: 'ಪಾವಗಡ ಸೌರ 1', capacityMw: 150, cluster: 'A', type: 'solar' },
+  { id: 'PVG_S2', name: 'Pavagada Solar 2', nameKn: 'ಪಾವಗಡ ಸೌರ 2', capacityMw: 120, cluster: 'A', type: 'solar' },
+  { id: 'MIX_S1', name: 'Chitradurga Solar', nameKn: 'ಚಿತ್ರದುರ್ಗ ಸೌರ', capacityMw: 90, cluster: 'A', type: 'solar' },
+  { id: 'GAD_W1', name: 'Gadag Wind 1', nameKn: 'ಗದಗ ಗಾಳಿ 1', capacityMw: 100, cluster: 'B', type: 'wind' },
+  { id: 'GAD_W2', name: 'Gadag Wind 2', nameKn: 'ಗದಗ ಗಾಳಿ 2', capacityMw: 80, cluster: 'B', type: 'wind' },
+  { id: 'MIX_W1', name: 'Raichur Wind', nameKn: 'ರಾಯಚೂರು ಗಾಳಿ', capacityMw: 60, cluster: 'B', type: 'wind' },
 ]
 
 export const CLUSTER_LABELS = {
@@ -31,6 +31,15 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
 export function plantMeta(plantId) {
   return PLANTS.find((p) => p.id === plantId) || PLANTS[0]
+}
+
+export function plantDisplayName(plantOrId, lang = 'en') {
+  const plant =
+    typeof plantOrId === 'string'
+      ? PLANTS.find((p) => p.id === plantOrId)
+      : plantOrId
+  if (!plant) return typeof plantOrId === 'string' ? plantOrId : ''
+  return lang === 'kn' ? plant.nameKn || plant.name : plant.name
 }
 
 /** Deterministic pseudo-random in [-1, 1] */

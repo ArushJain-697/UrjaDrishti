@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { fetchForecast, plantsInCluster, PLANTS } from '../api/client'
+import { fetchForecast, plantsInCluster, PLANTS, plantDisplayName } from '../api/client'
 import ReconciliationToggle from '../components/ReconciliationToggle.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
 import ServiceErrorBanner from '../components/ServiceErrorBanner.jsx'
@@ -27,9 +27,7 @@ const BAR_COLORS = {
   MIX_W1: '#c4b5fd',
 }
 
-const PLANT_NAMES = Object.fromEntries(PLANTS.map((p) => [p.id, p.name]))
-
-function ClusterTooltip({ active, payload, label, t }) {
+function ClusterTooltip({ active, payload, label, t, lang }) {
   if (!active || !payload?.length) return null
   const h = Number(label)
   const hh = String(h).padStart(2, '0')
@@ -39,7 +37,7 @@ function ClusterTooltip({ active, payload, label, t }) {
       <ul className="space-y-1">
         {payload.map((p) => (
           <li key={p.dataKey} className="flex justify-between gap-4 text-muted-text">
-            <span style={{ color: p.color }}>{PLANT_NAMES[p.dataKey] || p.dataKey}</span>
+            <span style={{ color: p.color }}>{plantDisplayName(p.dataKey, lang)}</span>
             <span className="tabular-nums text-main-text">{Number(p.value).toFixed(1)} MW</span>
           </li>
         ))}
@@ -49,7 +47,7 @@ function ClusterTooltip({ active, payload, label, t }) {
 }
 
 export default function ClusterView() {
-  const { t } = useLanguage()
+  const { lang, t } = useLanguage()
   const [selectedCluster, setSelectedCluster] = useState('A')
   const [forecasts, setForecasts] = useState({})
   const [loading, setLoading] = useState(true)
@@ -171,12 +169,12 @@ export default function ClusterView() {
                   width={44}
                 />
                 <Tooltip
-                  content={<ClusterTooltip t={t} />}
+                  content={<ClusterTooltip t={t} lang={lang} />}
                   cursor={{ fill: 'rgba(59,130,246,0.06)' }}
                 />
                 <Legend
                   wrapperStyle={{ fontSize: 12, color: 'var(--muted-text)' }}
-                  formatter={(value) => PLANT_NAMES[value] || value}
+                  formatter={(value) => plantDisplayName(value, lang)}
                 />
                 {plantIds.map((pid) => (
                   <Bar

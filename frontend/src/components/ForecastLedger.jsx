@@ -1,25 +1,25 @@
 import { useMemo, useState } from 'react'
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, Printer } from 'lucide-react'
-import { PLANTS, plantMeta } from '../api/client'
+import { PLANTS, plantMeta, plantDisplayName } from '../api/client'
 import { useLanguage } from '../context/LanguageContext'
 
 // ── Officers and note templates ─────────────────────────────────────────────
 const OFFICERS = ['R. Kumar', 'S. Patil', 'M. Hegde', 'A. Nair']
 
-const NOTES_HIGH = [
+const NOTES_HIGH_EN = [
   'Clear sky conditions. Forecast confidence high. Proceeding with scheduled draw.',
   'Stable NWP signals. All systems nominal.',
   'Forecast within ±2% of actuals. No intervention required.',
   'Clean generation day. Evening ramp tracked correctly.',
   'Model performed well — within operational tolerance.',
 ]
-const NOTES_MED = [
+const NOTES_MED_EN = [
   'Partial cloud development in afternoon. Minor deviation from forecast.',
   'Wind variability in mid-day. Reserve margin held as precaution.',
   'NWP ensemble spread wider than usual. Intraday update used.',
   'Slight morning fog — forecast partially missed early generation dip.',
 ]
-const NOTES_HIGH_ERR = [
+const NOTES_HIGH_ERR_EN = [
   'Cloud ramp event — forecast revised intraday. Reserve held.',
   'Unexpected cloud front. Intraday update partially corrected forecast.',
   'Monsoon transition — forecast error within expected range for onset days.',
@@ -39,7 +39,33 @@ function seedFrom(n) {
 }
 
 // ── Generate 14 days × 6 plants = 84 ledger rows ───────────────────────────
-function generateLedgerData() {
+function generateLedgerData(lang) {
+  const NOTES_HIGH = lang === 'kn'
+    ? [
+        'ಸ್ವಚ್ಛ ಆಕಾಶದ ಪರಿಸ್ಥಿತಿ. ಮುನ್ಸೂಚನೆ ವಿಶ್ವಾಸ ಹೆಚ್ಚು. ನಿಗದಿತ ಡ್ರಾವ್ ಮುಂದುವರಿಯುತ್ತದೆ.',
+        'ಸ್ಥಿರ NWP ಸಂಕೆತಗಳು. ಎಲ್ಲಾ ವ್ಯವಸ್ಥೆಗಳು ಸಾಮಾನ್ಯವಾಗಿವೆ.',
+        'ಮುನ್ಸೂಚನೆ ನೈಜ ಮೌಲ್ಯದಿಂದ ±2% ಒಳಗಿದೆ. ಯಾವುದೇ ಹಸ್ತಕ್ಷೇಪ ಅಗತ್ಯವಿಲ್ಲ.',
+        'ಶುದ್ಧ ಉತ್ಪಾದನಾ ದಿನ. ಸಂಜೆ ರ್ಯಾಂಪ್ ಸರಿಯಾಗಿ ಅನುಸರಿಸಿದೆ.',
+        'ಮಾದರಿ ಉತ್ತಮವಾಗಿ ಕಾರ್ಯನಿರ್ವಹಿಸಿದೆ — ಕಾರ್ಯಾಚರಣಾ ಸಹಿಷ್ಣುತೆ ಒಳಗೆ.',
+      ]
+    : NOTES_HIGH_EN
+  const NOTES_MED = lang === 'kn'
+    ? [
+        'ಮಧ್ಯಾಹ್ನ ಭಾಗಶಃ ಮೋಡ ಅಭಿವೃದ್ಧಿಯಾಯಿತು. ಮುನ್ಸೂಚನೆಯಿಂದ ಸಣ್ಣ ವ್ಯತ್ಯಾಸ.',
+        'ಮಧ್ಯಾಹ್ನ ಗಾಳಿಯ ಅಸ್ಥಿರತೆ. ಮುನ್ನೆಚ್ಚರಿಕೆಯಾಗಿ ಮೀಸಲು ಅಂಚು ಕಾಯ್ದುಕೊಂಡಿತು.',
+        'NWP ವ್ಯಾಪ್ತಿ ಸಾಮಾನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚಿತ್ತು. ಅಂತರದಿನ ನವೀಕರಣ ಬಳಸಾಯಿತು.',
+        'ಸ್ವಲ್ಪ ಬೆಳಗಿನ ಮಂಜು — ಆರಂಭಿಕ ಉತ್ಪಾದನಾ ಇಳಿಕೆಯನ್ನು ಮಾದರಿ ಭಾಗಶಃ ತಪ್ಪಿಸಿತು.',
+      ]
+    : NOTES_MED_EN
+  const NOTES_HIGH_ERR = lang === 'kn'
+    ? [
+        'ಮೋಡ ರ್ಯಾಂಪ್ ಘಟನೆ — ಅಂತರದಿನ ಮುನ್ಸೂಚನೆ ತಿದ್ದುಪಡಿ ಮಾಡಲಾಯಿತು. ಮೀಸಲು ಕಾಯ್ದುಕೊಂಡಿತು.',
+        'ಅನಿರೀಕ್ಷಿತ ಮೋಡ ಮುಂಭಾಗ. ಅಂತರದಿನ ನವೀಕರಣವು ಮುನ್ಸೂಚನೆಯನ್ನು ಭಾಗಶಃ ಸರಿಪಡಿಸಿತು.',
+        'ಮಾನ್ಸೂನ್ ವರ್ಗಮನ — ಆರಂಭದ ದಿನಗಳಿಗೆ ನಿರೀಕ್ಷಿತ ವ್ಯಾಪ್ತಿಯೊಳಗಿನ ದೋಷ.',
+        'ಕಟ್-ಔಟ್ ಗಡಿ ಬಳಿ ಗಾಳಿಯ ವೇಗ — ಹೆಚ್ಚಿನ ಅನಿಶ್ಚಿತತಾ ಸೂಚನೆ ಸಕ್ರಿಯಗೊಂಡಿತು.',
+      ]
+    : NOTES_HIGH_ERR_EN
+
   const rows = []
   const today = new Date()
 
@@ -51,9 +77,11 @@ function generateLedgerData() {
 
     // Is this a stress day? Roughly 2-3 per 14 days
     const isStressDay = seedFrom(dayOfYear * 7 + 3) < 0.18
-    const stressLabel = isStressDay
-      ? ['Cloud ramp event', 'Monsoon onset', 'Wind ramp'][Math.floor(seedFrom(dayOfYear) * 3)]
-      : null
+      const stressLabel = isStressDay
+        ? (lang === 'kn'
+            ? ['ಮೋಡ ರ್ಯಾಂಪ್ ಘಟನೆ', 'ಮಾನ್ಸೂನ್ ಆರಂಭ', 'ಗಾಳಿ ರ್ಯಾಂಪ್'][Math.floor(seedFrom(dayOfYear) * 3)]
+            : ['Cloud ramp event', 'Monsoon onset', 'Wind ramp'][Math.floor(seedFrom(dayOfYear) * 3)])
+        : null
 
     for (const plant of PLANTS) {
       const meta = plantMeta(plant.id)
@@ -100,7 +128,7 @@ function generateLedgerData() {
       rows.push({
         id: `${dateStr}-${plant.id}`,
         date: dateStr,
-        plant: meta.name,
+        plant: plantDisplayName(meta, lang),
         plant_id: plant.id,
         plantType: type,
         forecastPeak,
@@ -146,8 +174,8 @@ function Th({ children, col, sortCol, sortDir, onSort }) {
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function ForecastLedger() {
-  const { t } = useLanguage()
-  const allRows = useMemo(() => generateLedgerData(), [])
+  const { lang, t } = useLanguage()
+  const allRows = useMemo(() => generateLedgerData(lang), [lang])
 
   const [search, setSearch] = useState('')
   const [plantFilter, setPlantFilter] = useState('all')
@@ -236,7 +264,7 @@ export default function ForecastLedger() {
           >
             <option value="all">{t('allPlants') || 'All Plants'}</option>
             {PLANTS.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              <option key={p.id} value={p.id}>{plantDisplayName(p, lang)}</option>
             ))}
           </select>
         </div>
@@ -277,7 +305,7 @@ export default function ForecastLedger() {
                 >
                   <td className="px-4 py-2.5 tabular-nums text-muted-text">{row.date}</td>
                   <td className="px-4 py-2.5">
-                    <span className="font-medium text-main-text">{row.plant}</span>
+                    <span className="font-medium text-main-text">{plantDisplayName(row.plant_id, lang)}</span>
                     <span
                       className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase"
                       style={{
@@ -299,8 +327,10 @@ export default function ForecastLedger() {
                     {row.errorPct.toFixed(1)}%
                     {tooltipRow === row.id && (
                       <div className="pointer-events-none absolute left-full top-1/2 z-50 -translate-y-1/2 ml-2 w-52 rounded-lg border border-line bg-surface-bg px-3 py-2 text-[11px] shadow-xl text-muted-text">
-                        Absolute error: {Math.abs(row.actualPeak - row.forecastPeak).toFixed(1)} MW —{' '}
-                        {row.errorPct < 10 ? 'within acceptable operational range' : 'Exceeded threshold — see notes'}
+                        {lang === 'kn' ? 'ಸಂಪೂರ್ಣ ದೋಷ' : 'Absolute error'}: {Math.abs(row.actualPeak - row.forecastPeak).toFixed(1)} MW —{' '}
+                        {row.errorPct < 10
+                          ? (lang === 'kn' ? 'ಸ್ವೀಕಾರಾರ್ಹ ಕಾರ್ಯಾಚರಣಾ ವ್ಯಾಪ್ತಿಯೊಳಗೆ' : 'within acceptable operational range')
+                          : (lang === 'kn' ? 'ಮಿತಿಯನ್ನು ಮೀರಿ ಹೋಗಿದೆ — ಟಿಪ್ಪಣಿಗಳನ್ನು ನೋಡಿ' : 'Exceeded threshold — see notes')}
                       </div>
                     )}
                   </td>
