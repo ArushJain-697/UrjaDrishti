@@ -330,8 +330,8 @@ export default function WarRoomView({ onExit }) {
         {/* Left */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.aGreen, boxShadow: `0 0 8px ${C.aGreen}` }} />
-          <span style={{ color: '#3b82f6', fontSize: 15, fontWeight: 800, letterSpacing: '0.06em' }}>URJADRISHTI</span>
-          <span style={{ fontSize: 9, padding: '2px 6px', border: `1px solid #3b82f620`, borderRadius: 3, color: '#3b82f680', letterSpacing: '0.08em' }}>KREDL / KSPDCL</span>
+          <span style={{ color: '#3b82f6', fontSize: 15, fontWeight: 800, letterSpacing: '0.06em' }}>{t('urjaDrishtiWordmark')}</span>
+          <span style={{ fontSize: 9, padding: '2px 6px', border: `1px solid #3b82f620`, borderRadius: 3, color: '#3b82f680', letterSpacing: '0.08em' }}>{t('orgWordmark')}</span>
         </div>
 
         {/* Center title */}
@@ -342,7 +342,9 @@ export default function WarRoomView({ onExit }) {
           {usingMock ? (
             <div style={{ fontSize: 9, color: C.aAmber, letterSpacing: '0.1em', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
               <RefreshCw size={8} style={{ animation: 'war-live-pulse 1s linear infinite' }} />
-              {fetchError ? `ERR: ${fetchError.slice(0, 60)}` : t('connectingToBackend')}
+              {fetchError
+                ? `${t('errorPrefix')}: ${fetchError.toLowerCase().includes('load failed') ? t('loadFailed') : fetchError.slice(0, 60)}`
+                : t('connectingToBackend')}
             </div>
           ) : (
             <div style={{ fontSize: 9, color: C.textMut, letterSpacing: '0.12em', marginTop: 2 }}>

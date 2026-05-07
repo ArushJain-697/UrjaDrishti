@@ -3,7 +3,71 @@ import { Printer, Trash2 } from 'lucide-react'
 import { PLANTS, plantDisplayName } from '../api/client'
 import { useLanguage } from '../context/LanguageContext'
 
-const OFFICERS = ['R. Kumar', 'S. Patil', 'M. Hegde', 'A. Nair']
+const OFFICERS = [
+  { en: 'R. Kumar', kn: 'ಆರ್. ಕುಮಾರ್' },
+  { en: 'S. Patil', kn: 'ಎಸ್. ಪಾಟೀಲ್' },
+  { en: 'M. Hegde', kn: 'ಎಂ. ಹೆಗ್ಡೆ' },
+  { en: 'A. Nair', kn: 'ಎ. ನಾಯರ್' },
+]
+
+function officerName(officerEn, lang) {
+  const match = OFFICERS.find((o) => o.en === officerEn || o.kn === officerEn)
+  if (!match) return officerEn
+  return lang === 'kn' ? match.kn : match.en
+}
+
+function translateNote(text, lang) {
+  if (!text) return ''
+  const enToKnExact = {
+    'Morning shift started. Clear sky conditions. Forecast confidence high. Proceeding with scheduled draw.':
+      'ಬೆಳಗಿನ ಶಿಫ್ಟ್ ಆರಂಭವಾಗಿದೆ. ಸ್ವಚ್ಛ ಆಕಾಶದ ಪರಿಸ್ಥಿತಿ. ಮುನ್ಸೂಚನೆ ವಿಶ್ವಾಸ ಹೆಚ್ಚು. ನಿಗದಿತ ಡ್ರಾ ಮುಂದುವರಿಯುತ್ತದೆ.',
+    'Wind speed picking up from northwest. Output tracking above forecast. No action required.':
+      'ವಾಯುವ್ಯ ದಿಕ್ಕಿನಿಂದ ಗಾಳಿಯ ವೇಗ ಹೆಚ್ಚುತ್ತಿದೆ. ಉತ್ಪಾದನೆ ಮುನ್ಸೂಚನೆಯಿಗಿಂತ ಮೇಲಿದೆ. ಯಾವುದೇ ಕ್ರಮ ಅಗತ್ಯವಿಲ್ಲ.',
+    'Cloud cover developing from west. Notified dispatch. Reduced scheduled draw by 10 MW as precaution.':
+      'ಪಶ್ಚಿಮದಿಂದ ಮೋಡ ಆವರಣ ಹೆಚ್ಚುತ್ತಿದೆ. ಡಿಸ್ಪ್ಯಾಚ್‌ಗೆ ಮಾಹಿತಿ ನೀಡಲಾಗಿದೆ. ಮುನ್ನೆಚ್ಚರಿಕೆಯಿಂದ ನಿಗದಿತ ಡ್ರಾವನ್ನು 10 MW ಕಡಿತ ಮಾಡಲಾಗಿದೆ.',
+  }
+  const knToEnExact = Object.fromEntries(Object.entries(enToKnExact).map(([en, kn]) => [kn, en]))
+  if (lang === 'kn') {
+    if (enToKnExact[text]) return enToKnExact[text]
+    let out = text
+    const replacements = [
+      ['Morning', 'ಬೆಳಗ್ಗೆ'],
+      ['Evening', 'ಸಂಜೆ'],
+      ['Cloud', 'ಮೋಡ'],
+      ['cloud', 'ಮೋಡ'],
+      ['Wind', 'ಗಾಳಿ'],
+      ['wind', 'ಗಾಳಿ'],
+      ['Forecast', 'ಮುನ್ಸೂಚನೆ'],
+      ['forecast', 'ಮುನ್ಸೂಚನೆ'],
+      ['confidence', 'ವಿಶ್ವಾಸ'],
+      ['No action required', 'ಯಾವುದೇ ಕ್ರಮ ಅಗತ್ಯವಿಲ್ಲ'],
+      ['Reserve', 'ಮೀಸಲು'],
+      ['Reserve held', 'ಮೀಸಲು ಕಾಯ್ದುಕೊಂಡಿತು'],
+      ['MW', 'MW'],
+    ]
+    replacements.forEach(([en, kn]) => {
+      out = out.replaceAll(en, kn)
+    })
+    return out
+  }
+
+  if (knToEnExact[text]) return knToEnExact[text]
+  let out = text
+  const replacements = [
+    ['ಮೋಡ', 'cloud'],
+    ['ಗಾಳಿ', 'wind'],
+    ['ಮುನ್ಸೂಚನೆ', 'forecast'],
+    ['ವಿಶ್ವಾಸ', 'confidence'],
+    ['ಯಾವುದೇ ಕ್ರಮ ಅಗತ್ಯವಿಲ್ಲ', 'No action required'],
+    ['ಮೀಸಲು', 'reserve'],
+    ['ಬೆಳಗ್ಗೆ', 'morning'],
+    ['ಸಂಜೆ', 'evening'],
+  ]
+  replacements.forEach(([kn, en]) => {
+    out = out.replaceAll(kn, en)
+  })
+  return out
+}
 
 export default function LogbookView() {
   const { lang, t } = useLanguage()
@@ -15,34 +79,36 @@ export default function LogbookView() {
   const [selectedPlant, setSelectedPlant] = useState('PVG_S1')
   const [selectedHour, setSelectedHour] = useState('12:00')
   const [noteText, setNoteText] = useState('')
-  const [officerName, setOfficerName] = useState(OFFICERS[0])
+  const [officerNameValue, setOfficerNameValue] = useState(OFFICERS[0].en)
 
   useEffect(() => {
     const saved = localStorage.getItem('urjadrishti_logbook')
     if (saved) {
-      setEntries(JSON.parse(saved))
+      const parsed = JSON.parse(saved).map((e) => ({
+        ...e,
+        note_en: e.note_en || translateNote(e.note, 'en'),
+        note_kn: e.note_kn || translateNote(e.note, 'kn'),
+      }))
+      setEntries(parsed)
     } else {
       // Mock entries
       const mock = [
         {
           id: 1, timestamp: "2026-03-05T06:15:00.000Z", plant_id: "PVG_S1", hour: "06:00",
-          note: lang === 'kn'
-            ? 'ಬೆಳಗಿನ ಶಿಫ್ಟ್ ಆರಂಭವಾಗಿದೆ. ಸ್ವಚ್ಛ ಆಕಾಶದ ಪರಿಸ್ಥಿತಿ. ಮುನ್ಸೂಚನೆ ವಿಶ್ವಾಸ ಹೆಚ್ಚು. ನಿಗದಿತ ಡ್ರಾ ಮುಂದುವರಿಯುತ್ತದೆ.'
-            : "Morning shift started. Clear sky conditions. Forecast confidence high. Proceeding with scheduled draw.",
+          note_en: "Morning shift started. Clear sky conditions. Forecast confidence high. Proceeding with scheduled draw.",
+          note_kn: 'ಬೆಳಗಿನ ಶಿಫ್ಟ್ ಆರಂಭವಾಗಿದೆ. ಸ್ವಚ್ಛ ಆಕಾಶದ ಪರಿಸ್ಥಿತಿ. ಮುನ್ಸೂಚನೆ ವಿಶ್ವಾಸ ಹೆಚ್ಚು. ನಿಗದಿತ ಡ್ರಾ ಮುಂದುವರಿಯುತ್ತದೆ.',
           officer: "R. Kumar", forecast_p50_at_hour: 12.3
         },
         {
           id: 2, timestamp: "2026-03-05T09:30:00.000Z", plant_id: "GAD_W1", hour: "09:00",
-          note: lang === 'kn'
-            ? 'ವಾಯುವ್ಯ ದಿಕ್ಕಿನಿಂದ ಗಾಳಿಯ ವೇಗ ಹೆಚ್ಚುತ್ತಿದೆ. ಉತ್ಪಾದನೆ ಮುನ್ಸೂಚನೆಯಿಗಿಂತ ಮೇಲಿದೆ. ಯಾವುದೇ ಕ್ರಮ ಅಗತ್ಯವಿಲ್ಲ.'
-            : "Wind speed picking up from northwest. Output tracking above forecast. No action required.",
+          note_en: "Wind speed picking up from northwest. Output tracking above forecast. No action required.",
+          note_kn: 'ವಾಯುವ್ಯ ದಿಕ್ಕಿನಿಂದ ಗಾಳಿಯ ವೇಗ ಹೆಚ್ಚುತ್ತಿದೆ. ಉತ್ಪಾದನೆ ಮುನ್ಸೂಚನೆಯಿಗಿಂತ ಮೇಲಿದೆ. ಯಾವುದೇ ಕ್ರಮ ಅಗತ್ಯವಿಲ್ಲ.',
           officer: "S. Patil", forecast_p50_at_hour: 45.2
         },
         {
           id: 3, timestamp: "2026-03-05T11:45:00.000Z", plant_id: "MIX_S1", hour: "11:00",
-          note: lang === 'kn'
-            ? 'ಪಶ್ಚಿಮದಿಂದ ಮೋಡ ಆವರಣ ಹೆಚ್ಚುತ್ತಿದೆ. ಡಿಸ್ಪ್ಯಾಚ್‌ಗೆ ಮಾಹಿತಿ ನೀಡಲಾಗಿದೆ. ಮುನ್ನೆಚ್ಚರಿಕೆಯಿಂದ ನಿಗದಿತ ಡ್ರಾವನ್ನು 10 MW ಕಡಿತ ಮಾಡಲಾಗಿದೆ.'
-            : "Cloud cover developing from west. Notified dispatch. Reduced scheduled draw by 10 MW as precaution.",
+          note_en: "Cloud cover developing from west. Notified dispatch. Reduced scheduled draw by 10 MW as precaution.",
+          note_kn: 'ಪಶ್ಚಿಮದಿಂದ ಮೋಡ ಆವರಣ ಹೆಚ್ಚುತ್ತಿದೆ. ಡಿಸ್ಪ್ಯಾಚ್‌ಗೆ ಮಾಹಿತಿ ನೀಡಲಾಗಿದೆ. ಮುನ್ನೆಚ್ಚರಿಕೆಯಿಂದ ನಿಗದಿತ ಡ್ರಾವನ್ನು 10 MW ಕಡಿತ ಮಾಡಲಾಗಿದೆ.',
           officer: "R. Kumar", forecast_p50_at_hour: 67.8
         }
       ]
@@ -64,8 +130,9 @@ export default function LogbookView() {
       timestamp: new Date().toISOString(),
       plant_id: selectedPlant,
       hour: selectedHour,
-      note: noteText,
-      officer: officerName,
+      note_en: lang === 'kn' ? translateNote(noteText, 'en') : noteText,
+      note_kn: lang === 'kn' ? noteText : translateNote(noteText, 'kn'),
+      officer: officerNameValue,
       forecast_p50_at_hour: 0 // Mock value
     }
     saveEntries([newEntry, ...entries])
@@ -81,7 +148,8 @@ export default function LogbookView() {
   }
 
   const filteredEntries = entries.filter(e => {
-    const matchSearch = e.note.toLowerCase().includes(search.toLowerCase()) || 
+    const activeNote = lang === 'kn' ? (e.note_kn || e.note || '') : (e.note_en || e.note || '')
+    const matchSearch = activeNote.toLowerCase().includes(search.toLowerCase()) || 
                         e.officer.toLowerCase().includes(search.toLowerCase()) ||
                         e.plant_id.toLowerCase().includes(search.toLowerCase())
     const matchPlant = filterPlant === 'all' || e.plant_id === filterPlant
@@ -132,9 +200,9 @@ export default function LogbookView() {
                     {e.plant_id === 'general' ? (lang === 'kn' ? 'ಸಾಮಾನ್ಯ' : 'General') : e.plant_id} • {e.hour}
                   </span>
                 </div>
-                <span className="text-xs text-muted-text">{lang === 'kn' ? 'ಅಧಿಕಾರಿ' : 'Officer'}: {e.officer}</span>
+                <span className="text-xs text-muted-text">{lang === 'kn' ? 'ಅಧಿಕಾರಿ' : 'Officer'}: {officerName(e.officer, lang)}</span>
               </div>
-              <p className="text-sm text-[#e2e8f0]">{e.note}</p>
+              <p className="text-sm text-[#e2e8f0]">{lang === 'kn' ? (e.note_kn || e.note || '') : (e.note_en || e.note || '')}</p>
               {e.forecast_p50_at_hour > 0 && (
                 <p className="text-xs italic text-faint-text">
                   {lang === 'kn' ? 'ಈ ಗಂಟೆಯಲ್ಲಿ ಮುನ್ಸೂಚನೆ' : 'Forecast at this hour was'} {e.forecast_p50_at_hour} MW
@@ -187,11 +255,11 @@ export default function LogbookView() {
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-text">{lang === 'kn' ? 'ಅಧಿಕಾರಿಯ ಹೆಸರು' : 'Officer Name'}</label>
             <select
-              value={officerName}
-              onChange={(e) => setOfficerName(e.target.value)}
+              value={officerNameValue}
+              onChange={(e) => setOfficerNameValue(e.target.value)}
               className="w-full rounded-lg border border-line bg-base-bg px-3 py-2 text-sm text-main-text outline-none focus:border-[#3b82f6]"
             >
-              {OFFICERS.map(o => <option key={o} value={o}>{o}</option>)}
+              {OFFICERS.map((o) => <option key={o.en} value={o.en}>{lang === 'kn' ? o.kn : o.en}</option>)}
             </select>
           </div>
 

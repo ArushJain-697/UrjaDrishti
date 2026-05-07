@@ -81,7 +81,7 @@ export default function App() {
           <div className="flex flex-1 items-center justify-end gap-2">
             <button
               onClick={toggleTheme}
-              title="Toggle Theme"
+              title={t('toggleTheme')}
               className="flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs font-medium transition-colors hover:border-[#10b981] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_10px_rgba(16,185,129,0.2)]"
               style={{ color: 'var(--muted-text)' }}
             >
@@ -99,7 +99,7 @@ export default function App() {
             <ImpactCounters />
             <button
               onClick={() => setShowNotifications(true)}
-              title="Notifications Settings"
+              title={t('notificationSettings')}
               className="flex items-center justify-center h-[40px] w-[40px] rounded-full bg-[#3b82f6]/10 text-[#3b82f6] hover:bg-[#3b82f6]/20 transition-colors"
             >
               <Bell className="h-6 w-6" />
@@ -107,7 +107,7 @@ export default function App() {
             <SystemStatus />
             <button
               onClick={enterWarRoom}
-              title="Enter War Room — fullscreen grid monitor"
+              title={t('enterWarRoomTitle')}
               className="flex items-center gap-1.5 rounded-md border border-[#ff3d0030] bg-[#ff3d0008] px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:border-[#ff3d00] hover:bg-[#ff3d0015] hover:shadow-[0_0_12px_rgba(255,61,0,0.3)]"
               style={{ color: '#ff5252' }}
             >

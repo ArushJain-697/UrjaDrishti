@@ -246,7 +246,7 @@ export default function PlantView() {
               ) : null}
             </span>
             <span className="text-faint-text">
-              {plantDisplayName(meta, lang)} · {formatMw(meta.capacityMw)} MW ({meta.type})
+              {plantDisplayName(meta, lang)} · {formatMw(meta.capacityMw)} MW ({meta.type === 'solar' ? t('solar') : t('wind')})
             </span>
           </div>
         </div>

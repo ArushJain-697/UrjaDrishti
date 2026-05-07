@@ -5,15 +5,17 @@ import { useLanguage } from '../context/LanguageContext'
 
 export default function NotificationsPanel({ isOpen, onClose }) {
   const { lang } = useLanguage()
+  const noAlertsSent = lang === 'kn' ? 'ಇನ್ನೂ ಯಾವುದೇ ಎಚ್ಚರಿಕೆ ಕಳುಹಿಸಲಾಗಿಲ್ಲ' : 'No alerts sent yet'
+  const noBriefingSent = lang === 'kn' ? 'ಇನ್ನೂ ಯಾವುದೇ ಬ್ರಿಫಿಂಗ್ ಕಳುಹಿಸಲಾಗಿಲ್ಲ' : 'No briefing sent yet'
   const [waEnabled, setWaEnabled] = useState(false)
   const [waPhone, setWaPhone] = useState('')
   const [waThreshold, setWaThreshold] = useState('5')
-  const [waStatus, setWaStatus] = useState(lang === 'kn' ? 'ಇನ್ನೂ ಯಾವುದೇ ಎಚ್ಚರಿಕೆ ಕಳುಹಿಸಲಾಗಿಲ್ಲ' : 'No alerts sent yet')
+  const [waStatus, setWaStatus] = useState(noAlertsSent)
 
   const [emailEnabled, setEmailEnabled] = useState(false)
   const [emailAddress, setEmailAddress] = useState('')
   const [emailTime, setEmailTime] = useState('06:00')
-  const [emailStatus, setEmailStatus] = useState(lang === 'kn' ? 'ಇನ್ನೂ ಯಾವುದೇ ಬ್ರಿಫಿಂಗ್ ಕಳುಹಿಸಲಾಗಿಲ್ಲ' : 'No briefing sent yet')
+  const [emailStatus, setEmailStatus] = useState(noBriefingSent)
 
   const [isSendingWa, setIsSendingWa] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
@@ -32,6 +34,15 @@ export default function NotificationsPanel({ isOpen, onClose }) {
       } catch (e) {}
     }
   }, [])
+
+  useEffect(() => {
+    if (waStatus === 'No alerts sent yet' || waStatus === 'ಇನ್ನೂ ಯಾವುದೇ ಎಚ್ಚರಿಕೆ ಕಳುಹಿಸಲಾಗಿಲ್ಲ') {
+      setWaStatus(noAlertsSent)
+    }
+    if (emailStatus === 'No briefing sent yet' || emailStatus === 'ಇನ್ನೂ ಯಾವುದೇ ಬ್ರಿಫಿಂಗ್ ಕಳುಹಿಸಲಾಗಿಲ್ಲ') {
+      setEmailStatus(noBriefingSent)
+    }
+  }, [lang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveSettings = () => {
     localStorage.setItem('urjadrishti_notification_settings', JSON.stringify({
