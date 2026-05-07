@@ -521,17 +521,31 @@ def get_results() -> dict:
     Called by evaluationService.py.
     Returns evaluation results in the shape the API / dashboard expects.
 
-    Day 2: Tries to load real baseline results from Person 1's data.
-           Falls back to static mock if data file not found yet.
-
-    Day 3 TODO: Uncomment the model block once Person 2's forecast CSV exists:
-        forecast_df = pd.read_csv("data/test_forecasts.csv")
-        model_evals = evaluate(forecast_df, plant_type_map=PLANT_TYPE_MAP)
+    Priority:
+      1. _eval_cache.json  — pre-computed locally, committed to the repo.
+                             This is what runs on Railway (no data CSV available).
+      2. Live computation  — runs if the feature CSV is present (local dev).
+      3. Static mock       — last resort if both above fail.
     """
+    import json
+
+    _HERE = Path(__file__).resolve().parent
+    CACHE_FILE = _HERE / "_eval_cache.json"
+
+    # ── 1. Try pre-computed cache ────────────────────────────────────────
+    if CACHE_FILE.exists():
+        try:
+            with open(CACHE_FILE) as f:
+                cached = json.load(f)
+            print("[get_results] Loaded evaluation results from cache.")
+            return cached
+        except Exception as e:
+            print(f"[get_results] Cache load failed: {e} — falling back to live computation")
+
+    # ── 2. Try live computation (needs data CSV) ─────────────────────────
     from src.ml.evaluation.baselines import run_all_baselines
     from src.ml.evaluation.baselines import PLANT_TYPE_MAP
 
-    # ── Try real baselines first ─────────────────────────────────────────
     paths = resolve_evaluation_data_paths()
     feature_path = paths["feature_matrix"]
     raw_weather_path = paths["raw_weather"]
@@ -543,7 +557,6 @@ def get_results() -> dict:
         except Exception as e:
             print(f"[get_results] Baseline run failed: {e} — using mock")
 
-    # ── Format baselines for API ─────────────────────────────────────────
     def _fmt(b):
         """Extract solar/wind nMAE and CRPS from a baseline result dict."""
         if b is None:
@@ -571,7 +584,6 @@ def get_results() -> dict:
             "raw_nwp"       : _fmt(baseline_results["raw_nwp"]),
         }
     else:
-        # Static mock — used when Person 1's data file is not yet available
         baselines = {
             "persistence":    {"nmae_solar": 0.21, "nmae_wind": 0.24, "nrmse_solar": 0.29, "nrmse_wind": 0.31, "coverage_80": 0.79, "coverage_90": None, "sharpness": 0.28, "crps": 0.33},
             "climatological": {"nmae_solar": 0.17, "nmae_wind": 0.20, "nrmse_solar": 0.24, "nrmse_wind": 0.26, "coverage_80": 0.81, "coverage_90": None, "sharpness": 0.25, "crps": 0.29},
@@ -603,7 +615,6 @@ def get_results() -> dict:
         except Exception as e:
             print(f"[get_results] Model evaluation failed: {e} — model metrics set to None")
 
-    # ── Compute improvement % if both model and persistence are available ─
     def _improvement_pct(model_val, baseline_val):
         if model_val is None or baseline_val is None or baseline_val == 0:
             return None
@@ -616,7 +627,6 @@ def get_results() -> dict:
         "crps_pct"      : _improvement_pct(model["crps"],       p["crps"]),
     }
 
-    # ── Season-stratified & per-plant breakdown (surface for dashboard) ───
     by_season = {}
     by_plant  = {}
     if model_evals:
@@ -630,4 +640,4 @@ def get_results() -> dict:
         "model_evaluation"          : model_evals,
         "by_season"                 : by_season,
         "by_plant"                  : by_plant,
-    }
+    }
