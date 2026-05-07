@@ -10,6 +10,7 @@ build/
 venv/
 env/
 *.pkl
+!backend/src/ml/forecasting/*.pkl
 *.joblib
 models/
 

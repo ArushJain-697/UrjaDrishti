@@ -1,0 +1,5 @@
+[build]
+providers = ["python", "nodejs"]
+
+[phases.build]
+commands = ["cd frontend && npm install && npm run build && cd .."]

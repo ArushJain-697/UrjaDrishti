@@ -201,6 +201,25 @@ With **backend (8000)** and **frontend (5173)** running, open **http://localhost
 
 ---
 
+## 🚀 Deploy to Railway
+
+Ready to deploy? Follow our quick deployment guide:
+
+### Quick Deploy (5 minutes)
+1. Push to GitHub
+2. Run `railway login && railway up`
+3. Set environment variables in Railway dashboard
+4. Your app is live!
+
+📖 **Full Guide:** [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md)
+
+**Quick Links:**
+- 🚀 [Quick Start](./QUICKSTART_RAILWAY.md)
+- 📖 [Detailed Guide](./RAILWAY_DEPLOYMENT.md)
+- 🔗 [Railway Docs](https://docs.railway.app/)
+
+---
+
 ## Manual run (if you do not use `start.sh` / `start.bat`)
 
 All commands assume repo root unless noted.

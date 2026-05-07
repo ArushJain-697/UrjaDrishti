@@ -7,6 +7,7 @@ load_dotenv()  # Load .env before anything else reads os.getenv()
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -97,3 +98,9 @@ app.include_router(
 @app.get("/")
 def root():
     return {"status": "KREDL Forecasting API is running"}
+
+
+# Mount static frontend files
+FRONTEND_BUILD_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+if FRONTEND_BUILD_DIR.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_BUILD_DIR, html=True), name="frontend")

@@ -237,11 +237,11 @@ export default function WarRoomView({ onExit }) {
 
     await Promise.all(PLANTS.map(async (p) => {
       try {
-        const res = await fetch('http://localhost:8000/api/forecast/', {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://pacific-youth-production-ad30.up.railway.app'}/api/forecast/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-API-Key': 'kredl-dev-key',
+            'X-API-Key': import.meta.env.VITE_API_KEY || 'kredl-dev-key',
           },
           body: JSON.stringify({ plant_id: p.id, hours_of_actuals: 0 }),
         })
