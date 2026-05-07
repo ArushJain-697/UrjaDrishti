@@ -15,61 +15,61 @@ MOCK_CALIBRATION_RESULT = {
     "plants": {
         "PVG_S1": {
             "calibration_results": {
-                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.12, "deviation": 0.02},
-                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.50, "deviation": 0.00},
-                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.88, "deviation": 0.02}
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.15, "deviation": 0.05},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 1.0, "deviation": 0.50},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 1.0, "deviation": 0.10}
             },
-            "is_calibrated": True,
-            "calibration_status": "✓ WELL-CALIBRATED"
+            "is_calibrated": False,
+            "calibration_status": "POORLY CALIBRATED"
         },
         "PVG_S2": {
             "calibration_results": {
-                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.11, "deviation": 0.01},
-                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.49, "deviation": 0.01},
-                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.91, "deviation": 0.01}
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.12, "deviation": 0.02},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.91, "deviation": 0.41},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.95, "deviation": 0.05}
             },
-            "is_calibrated": True,
-            "calibration_status": "✓ WELL-CALIBRATED"
+            "is_calibrated": False,
+            "calibration_status": "POORLY CALIBRATED"
         },
         "MIX_S1": {
             "calibration_results": {
-                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.13, "deviation": 0.03},
-                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.52, "deviation": 0.02},
-                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.87, "deviation": 0.03}
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.18, "deviation": 0.08},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 1.0, "deviation": 0.50},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 1.0, "deviation": 0.10}
             },
-            "is_calibrated": True,
-            "calibration_status": "✓ WELL-CALIBRATED"
+            "is_calibrated": False,
+            "calibration_status": "POORLY CALIBRATED"
         },
         "GAD_W1": {
             "calibration_results": {
-                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.09, "deviation": 0.01},
-                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.51, "deviation": 0.01},
-                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.92, "deviation": 0.02}
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.08, "deviation": 0.02},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.95, "deviation": 0.45},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 1.0, "deviation": 0.10}
             },
-            "is_calibrated": True,
-            "calibration_status": "✓ WELL-CALIBRATED"
+            "is_calibrated": False,
+            "calibration_status": "POORLY CALIBRATED"
         },
         "GAD_W2": {
             "calibration_results": {
                 0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.10, "deviation": 0.00},
-                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.50, "deviation": 0.00},
-                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.90, "deviation": 0.00}
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.95, "deviation": 0.45},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 1.0, "deviation": 0.10}
             },
-            "is_calibrated": True,
-            "calibration_status": "✓ WELL-CALIBRATED"
+            "is_calibrated": False,
+            "calibration_status": "POORLY CALIBRATED"
         },
         "MIX_W1": {
             "calibration_results": {
-                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.12, "deviation": 0.02},
-                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.48, "deviation": 0.02},
-                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.89, "deviation": 0.01}
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.20, "deviation": 0.10},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.83, "deviation": 0.33},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.95, "deviation": 0.05}
             },
-            "is_calibrated": True,
-            "calibration_status": "✓ WELL-CALIBRATED"
+            "is_calibrated": False,
+            "calibration_status": "POORLY CALIBRATED"
         }
     },
-    "all_calibrated": True,
-    "status": "✓ SYSTEM CALIBRATED"
+    "all_calibrated": False,
+    "status": "⚠ CALIBRATION ISSUES"
 }
 
 def audit_plant_quantiles(plant_id: str, actuals: list, p10: list, p50: list, p90: list):
