@@ -21,6 +21,51 @@ MOCK_CALIBRATION_RESULT = {
             },
             "is_calibrated": True,
             "calibration_status": "✓ WELL-CALIBRATED"
+        },
+        "PVG_S2": {
+            "calibration_results": {
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.11, "deviation": 0.01},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.49, "deviation": 0.01},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.91, "deviation": 0.01}
+            },
+            "is_calibrated": True,
+            "calibration_status": "✓ WELL-CALIBRATED"
+        },
+        "MIX_S1": {
+            "calibration_results": {
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.13, "deviation": 0.03},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.52, "deviation": 0.02},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.87, "deviation": 0.03}
+            },
+            "is_calibrated": True,
+            "calibration_status": "✓ WELL-CALIBRATED"
+        },
+        "GAD_W1": {
+            "calibration_results": {
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.09, "deviation": 0.01},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.51, "deviation": 0.01},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.92, "deviation": 0.02}
+            },
+            "is_calibrated": True,
+            "calibration_status": "✓ WELL-CALIBRATED"
+        },
+        "GAD_W2": {
+            "calibration_results": {
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.10, "deviation": 0.00},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.50, "deviation": 0.00},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.90, "deviation": 0.00}
+            },
+            "is_calibrated": True,
+            "calibration_status": "✓ WELL-CALIBRATED"
+        },
+        "MIX_W1": {
+            "calibration_results": {
+                0.1: {"nominal_quantile": 0.1, "observed_coverage": 0.12, "deviation": 0.02},
+                0.5: {"nominal_quantile": 0.5, "observed_coverage": 0.48, "deviation": 0.02},
+                0.9: {"nominal_quantile": 0.9, "observed_coverage": 0.89, "deviation": 0.01}
+            },
+            "is_calibrated": True,
+            "calibration_status": "✓ WELL-CALIBRATED"
         }
     },
     "all_calibrated": True,

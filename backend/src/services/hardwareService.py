@@ -9,11 +9,12 @@ import numpy as np
 MOCK_ANOMALY_RESULT = {
     "timestamp": "2026-05-05T12:00:00",
     "plants": {
-        "PVG_S1": {
-            "anomaly": False,
-            "severity": "none",
-            "recommendation": "✓ No action required."
-        }
+        "PVG_S1": {"anomaly": False, "severity": "none", "recommendation": "✓ No action required."},
+        "PVG_S2": {"anomaly": False, "severity": "none", "recommendation": "✓ No action required."},
+        "MIX_S1": {"anomaly": False, "severity": "none", "recommendation": "✓ No action required."},
+        "GAD_W1": {"anomaly": False, "severity": "none", "recommendation": "✓ No action required."},
+        "GAD_W2": {"anomaly": False, "severity": "none", "recommendation": "✓ No action required."},
+        "MIX_W1": {"anomaly": False, "severity": "none", "recommendation": "✓ No action required."}
     },
     "anomalies_detected": [],
     "system_status": "✓ HEALTHY"
