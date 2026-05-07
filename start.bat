@@ -1,51 +1,96 @@
 @echo off
+setlocal enabledelayedexpansion
+
 echo ==========================================
 echo    Starting UrjaDrishti Forecasting System
 echo ==========================================
 
-REM 1. Backend Setup
+set "ROOT_DIR=%~dp0"
+set "BACKEND_DIR=%ROOT_DIR%backend"
+set "FRONTEND_DIR=%ROOT_DIR%frontend"
+set "PYTHON_BIN="
+
+if not exist "%BACKEND_DIR%\" (
+    echo ERROR: Backend directory not found: %BACKEND_DIR%
+    exit /b 1
+)
+if not exist "%FRONTEND_DIR%\" (
+    echo ERROR: Frontend directory not found: %FRONTEND_DIR%
+    exit /b 1
+)
+
+where py >nul 2>nul
+if not errorlevel 1 (
+    set "PYTHON_BIN=py -3"
+)
+
+if not defined PYTHON_BIN (
+    where python >nul 2>nul
+    if not errorlevel 1 (
+        set "PYTHON_BIN=python"
+    )
+)
+
+if not defined PYTHON_BIN (
+    echo ERROR: Python was not found in PATH. Install Python 3.10+ and retry.
+    exit /b 1
+)
+
+where npm >nul 2>nul
+if errorlevel 1 (
+    echo ERROR: npm was not found in PATH. Install Node.js LTS and retry.
+    exit /b 1
+)
+
 echo.
 echo [1/5] Setting up backend environment...
-
-cd backend
+cd /d "%BACKEND_DIR%"
 
 if not exist "venv" (
     echo Creating virtual environment...
-    python -m venv venv
+    %PYTHON_BIN% -m venv venv
+    if errorlevel 1 exit /b 1
 )
 
 call venv\Scripts\activate.bat
-pip install -r requirements.txt -q
+if errorlevel 1 exit /b 1
+
+%PYTHON_BIN% -m pip install --upgrade pip >nul 2>nul
+%PYTHON_BIN% -m pip install -r requirements.txt
+if errorlevel 1 exit /b 1
 
 echo Backend environment ready.
 
-REM 2. Run Person 2's Model (includes Person 3)
 echo.
 echo [2/5] Running Person 2's forecasting model...
 echo        (This also generates Person 3's explanations)
-
-python -m src.ml.forecasting.main
-
+set "PYTHONPATH=%BACKEND_DIR%"
+%PYTHON_BIN% -m src.ml.forecasting.main
+if errorlevel 1 (
+    echo ERROR: Person 2 + Person 3 pipeline failed.
+    exit /b 1
+)
 echo Person 2 + Person 3 pipeline completed.
 
-REM 3. Run Person 4's Evaluation
 echo.
 echo [3/5] Running Person 4's evaluation scripts...
-
-python -m src.ml.evaluation.test_baselines
-python -m src.ml.evaluation.test_harness
-python -m src.ml.evaluation.run_stress_evaluation
-python -m src.ml.evaluation.run_day5_report
-
+%PYTHON_BIN% -m src.ml.evaluation.test_baselines
+if errorlevel 1 exit /b 1
+%PYTHON_BIN% -m src.ml.evaluation.test_harness
+if errorlevel 1 exit /b 1
+%PYTHON_BIN% -m src.ml.evaluation.run_stress_evaluation
+if errorlevel 1 exit /b 1
+%PYTHON_BIN% -m src.ml.evaluation.run_day5_report
+if errorlevel 1 exit /b 1
 echo Person 4 evaluation completed.
 
-REM 4. Start Frontend
 echo.
 echo [4/5] Starting frontend...
+cd /d "%FRONTEND_DIR%"
+npm install
+if errorlevel 1 exit /b 1
 
-cd ..\frontend
-npm install -q
-start npm run dev
+start "UrjaDrishti Frontend" cmd /k "npm run dev"
 
 echo.
 echo ==========================================
@@ -54,5 +99,8 @@ echo ==========================================
 echo.
 echo Dashboard: http://localhost:5173
 echo.
-echo Press any key to stop everything...
-pause >nul
+echo Reports: backend\src\ml\evaluation\reports
+echo Plots:   data\evaluation_plots
+echo.
+echo You can close this window; frontend keeps running in a separate terminal.
+exit /b 0

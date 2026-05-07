@@ -8,15 +8,15 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 
-from data_loader         import load_data, temporal_split
-from feature_engineering import transform
-from model               import (
+from src.ml.forecasting.data_loader import load_data, temporal_split
+from src.ml.forecasting.feature_engineering import transform
+from src.ml.forecasting.model import (
     train_stage1, predict_stage1,
     build_stage2_training_data, train_stage2,
     intraday_update,
     save_model, load_model,
 )
-from evaluation import nMAE, nRMSE
+from src.ml.forecasting.evaluation import nMAE, nRMSE
 
 _HERE        = os.path.dirname(os.path.abspath(__file__))
 _DEFAULT_CSV = os.path.join(_HERE, '..', '..', '..', '..', 'data', 'feature_matrix_final.csv')

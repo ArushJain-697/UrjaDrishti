@@ -1,61 +1,89 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="${ROOT_DIR}/backend"
+FRONTEND_DIR="${ROOT_DIR}/frontend"
+VENV_DIR="${BACKEND_DIR}/venv"
+
+cleanup() {
+  if [[ -n "${FRONTEND_PID:-}" ]]; then
+    kill "${FRONTEND_PID}" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "ERROR: Required command not found: $1"
+    exit 1
+  fi
+}
+
+ensure_dir() {
+  if [[ ! -d "$1" ]]; then
+    echo "ERROR: Required directory not found: $1"
+    exit 1
+  fi
+}
+
+find_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    echo "python3"
+    return
+  fi
+  if command -v python >/dev/null 2>&1; then
+    echo "python"
+    return
+  fi
+  echo "ERROR: Python not found. Install Python 3.10+ and retry."
+  exit 1
+}
 
 echo "=========================================="
 echo "   Starting UrjaDrishti Forecasting System"
 echo "=========================================="
 
-# ============================================
-# 1. BACKEND SETUP
-# ============================================
+require_cmd npm
+PYTHON_BIN="$(find_python)"
+ensure_dir "${BACKEND_DIR}"
+ensure_dir "${FRONTEND_DIR}"
+
 echo ""
 echo "[1/5] Setting up backend environment..."
+cd "${BACKEND_DIR}"
 
-cd backend
-
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
+if [[ ! -d "${VENV_DIR}" ]]; then
+  echo "Creating virtual environment..."
+  "${PYTHON_BIN}" -m venv "${VENV_DIR}"
 fi
 
-source venv/bin/activate
-pip install -r requirements.txt -q
-
+# shellcheck disable=SC1091
+source "${VENV_DIR}/bin/activate"
+python -m pip install --upgrade pip >/dev/null 2>&1 || true
+python -m pip install -r requirements.txt
 echo "Backend environment ready."
 
-# ============================================
-# 2. RUN PERSON 2'S MODEL (includes Person 3's explainability)
-# ============================================
 echo ""
 echo "[2/5] Running Person 2's forecasting model..."
 echo "       (This also generates Person 3's explanations)"
-
-python -m src.ml.forecasting.main
-
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.forecasting.main
 echo "Person 2 + Person 3 pipeline completed."
 
-# ============================================
-# 3. RUN PERSON 4'S EVALUATION
-# ============================================
 echo ""
 echo "[3/5] Running Person 4's evaluation scripts..."
-
-python -m src.ml.evaluation.test_baselines
-python -m src.ml.evaluation.test_harness
-python -m src.ml.evaluation.run_stress_evaluation
-python -m src.ml.evaluation.run_day5_report
-
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.test_baselines
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.test_harness
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.run_stress_evaluation
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.run_day5_report
 echo "Person 4 evaluation completed."
 
-# ============================================
-# 4. START FRONTEND
-# ============================================
 echo ""
 echo "[4/5] Starting frontend..."
-
-cd ../frontend
-npm install -q
+cd "${FRONTEND_DIR}"
+npm install
 npm run dev &
-
 FRONTEND_PID=$!
 
 echo ""
@@ -68,5 +96,4 @@ echo ""
 echo "Press Ctrl+C to stop everything"
 echo ""
 
-trap "kill $FRONTEND_PID" EXIT
-wait
+wait "${FRONTEND_PID}"

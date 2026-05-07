@@ -126,7 +126,7 @@ def get_forecast(plant_id, hours_of_actuals=0):
     hours = list(range(24))
     X = _make_X(plant_id, hours)
 
-    from model import predict_stage1
+    from src.ml.forecasting.model import predict_stage1
     p50, p10, p90 = predict_stage1(s1, X, return_pis=True)
 
     cap = _ASSET[plant_id]['capacity_mw']
@@ -145,7 +145,7 @@ def get_intraday_forecast(plant_id, actuals):
     X = _make_X(plant_id, hours)
     cap = _ASSET[plant_id]['capacity_mw']
 
-    from model import predict_stage1, intraday_update
+    from src.ml.forecasting.model import predict_stage1, intraday_update
 
     p50_full, p10_full, p90_full = predict_stage1(s1, X, return_pis=True)
 
