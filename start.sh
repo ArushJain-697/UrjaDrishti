@@ -54,7 +54,7 @@ ensure_dir "${BACKEND_DIR}"
 ensure_dir "${FRONTEND_DIR}"
 
 echo ""
-echo "[1/3] Setting up backend environment..."
+echo "[1/5] Setting up backend environment..."
 cd "${BACKEND_DIR}"
 
 if [[ ! -d "${VENV_DIR}" ]]; then
@@ -69,17 +69,25 @@ python -m pip install -r requirements.txt
 echo "Backend environment ready."
 
 echo ""
-echo "[2/4] Generating forecasting models..."
+echo "[2/5] Generating forecasting models..."
 PYTHONPATH="${BACKEND_DIR}" python -m src.ml.forecasting.main
 
 echo ""
-echo "[3/4] Starting backend..."
+echo "[3/5] Running evaluation scripts..."
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.test_baselines
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.test_harness
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.run_stress_evaluation
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.run_day5_report
+echo "Evaluation completed."
+
+echo ""
+echo "[4/5] Starting backend..."
 uvicorn src.main:app --reload --port 8000 &
 BACKEND_PID=$!
 echo "Backend running on http://localhost:8000"
 
 echo ""
-echo "[4/4] Starting frontend..."
+echo "[5/5] Starting frontend..."
 cd "${FRONTEND_DIR}"
 npm install
 npm run dev &

@@ -43,7 +43,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [1/3] Setting up backend environment...
+echo [1/5] Setting up backend environment...
 cd /d "%BACKEND_DIR%"
 
 if not exist "venv" (
@@ -62,7 +62,7 @@ if errorlevel 1 exit /b 1
 echo Backend environment ready.
 
 echo.
-echo [2/4] Generating forecasting models...
+echo [2/5] Generating forecasting models...
 set "PYTHONPATH=%BACKEND_DIR%"
 %PYTHON_BIN% -m src.ml.forecasting.main
 if errorlevel 1 (
@@ -71,11 +71,23 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/4] Starting backend...
+echo [3/5] Running evaluation scripts...
+%PYTHON_BIN% -m src.ml.evaluation.test_baselines
+if errorlevel 1 exit /b 1
+%PYTHON_BIN% -m src.ml.evaluation.test_harness
+if errorlevel 1 exit /b 1
+%PYTHON_BIN% -m src.ml.evaluation.run_stress_evaluation
+if errorlevel 1 exit /b 1
+%PYTHON_BIN% -m src.ml.evaluation.run_day5_report
+if errorlevel 1 exit /b 1
+echo Evaluation completed.
+
+echo.
+echo [4/5] Starting backend...
 start "UrjaDrishti Backend" cmd /k "uvicorn src.main:app --reload --port 8000"
 
 echo.
-echo [4/4] Starting frontend...
+echo [5/5] Starting frontend...
 cd /d "%FRONTEND_DIR%"
 npm install
 if errorlevel 1 exit /b 1
