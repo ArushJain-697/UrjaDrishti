@@ -1,117 +1,117 @@
-{
+﻿{
   "baselines": {
     "persistence": {
-      "nmae_solar": 0.21,
-      "nmae_wind": 0.24,
-      "nrmse_solar": 0.29,
-      "nrmse_wind": 0.31,
-      "coverage_80": 0.79,
+      "nmae_solar": 0.9646,
+      "nmae_wind": 1.23,
+      "nrmse_solar": 2.0644,
+      "nrmse_wind": 1.7221,
+      "coverage_80": 0.4427,
       "coverage_90": null,
-      "sharpness": 0.28,
-      "crps": 0.33
+      "sharpness": 0.0625,
+      "crps": 17.1058
     },
     "climatological": {
-      "nmae_solar": 0.17,
-      "nmae_wind": 0.20,
-      "nrmse_solar": 0.24,
-      "nrmse_wind": 0.26,
-      "coverage_80": 0.81,
+      "nmae_solar": 1.2102,
+      "nmae_wind": 0.9972,
+      "nrmse_solar": 1.9142,
+      "nrmse_wind": 1.2825,
+      "coverage_80": 0.8188,
       "coverage_90": null,
-      "sharpness": 0.25,
-      "crps": 0.29
+      "sharpness": 0.403,
+      "crps": 11.4882
     },
     "raw_nwp": {
-      "nmae_solar": 0.15,
-      "nmae_wind": 0.18,
-      "nrmse_solar": 0.21,
-      "nrmse_wind": 0.23,
-      "coverage_80": 0.82,
+      "nmae_solar": 0.0291,
+      "nmae_wind": 0.3554,
+      "nrmse_solar": 0.0435,
+      "nrmse_wind": 0.5677,
+      "coverage_80": 0.9055,
       "coverage_90": null,
-      "sharpness": 0.23,
-      "crps": 0.26
+      "sharpness": 0.1497,
+      "crps": 3.2308
     }
   },
   "model": {
-    "nmae_solar": 0.09,
-    "nmae_wind": 0.11,
-    "nrmse_solar": 0.13,
-    "nrmse_wind": 0.16,
-    "coverage_80": 0.794,
+    "nmae_solar": 0.1624,
+    "nmae_wind": 0.0718,
+    "nrmse_solar": 0.3617,
+    "nrmse_wind": 0.1096,
+    "coverage_80": 0.7959,
     "coverage_90": null,
-    "sharpness": 0.14,
-    "crps": 0.14
+    "sharpness": 0.0253,
+    "crps": 1.0365
   },
   "improvement_over_persistence": {
-    "nmae_solar_pct": 57.1,
-    "nmae_wind_pct": 54.2,
-    "crps_pct": 57.6
+    "nmae_solar_pct": 83.2,
+    "nmae_wind_pct": 94.2,
+    "crps_pct": 93.9
   },
   "by_season": {
     "Post-Monsoon": {
       "n_samples": 4326,
-      "nmae": 0.074,
-      "nrmse": 0.134,
-      "coverage_80": 0.771,
-      "sharpness": 0.026,
-      "crps": 0.11
+      "nmae": 0.0742,
+      "nrmse": 0.1342,
+      "coverage_80": 0.7712,
+      "sharpness": 0.0264,
+      "crps": 1.0803
     },
     "Winter": {
       "n_samples": 4464,
-      "nmae": 0.111,
-      "nrmse": 0.193,
-      "coverage_80": 0.82,
-      "sharpness": 0.024,
-      "crps": 0.16
+      "nmae": 0.1107,
+      "nrmse": 0.1933,
+      "coverage_80": 0.8199,
+      "sharpness": 0.0243,
+      "crps": 0.9941
     }
   },
   "by_plant": {
     "GAD_W1": {
       "n_samples": 1465,
-      "nmae": 0.086,
-      "nrmse": 0.120,
-      "coverage_80": 0.804,
-      "sharpness": 0.040,
-      "crps": 0.12
+      "nmae": 0.0855,
+      "nrmse": 0.1202,
+      "coverage_80": 0.8041,
+      "sharpness": 0.0397,
+      "crps": 2.0108
     },
     "GAD_W2": {
       "n_samples": 1465,
-      "nmae": 0.076,
-      "nrmse": 0.107,
-      "coverage_80": 0.812,
-      "sharpness": 0.035,
-      "crps": 0.10
+      "nmae": 0.0757,
+      "nrmse": 0.1072,
+      "coverage_80": 0.8116,
+      "sharpness": 0.0346,
+      "crps": 1.3408
     },
     "MIX_S1": {
       "n_samples": 1465,
-      "nmae": 0.092,
-      "nrmse": 0.143,
+      "nmae": 0.1922,
+      "nrmse": 0.429,
       "coverage_80": 0.813,
-      "sharpness": 0.019,
-      "crps": 0.09
+      "sharpness": 0.0192,
+      "crps": 0.6903
     },
     "MIX_W1": {
       "n_samples": 1465,
-      "nmae": 0.045,
-      "nrmse": 0.061,
-      "coverage_80": 0.773,
-      "sharpness": 0.029,
-      "crps": 0.08
+      "nmae": 0.0447,
+      "nrmse": 0.0613,
+      "coverage_80": 0.7727,
+      "sharpness": 0.0288,
+      "crps": 0.6234
     },
     "PVG_S1": {
       "n_samples": 1465,
-      "nmae": 0.084,
-      "nrmse": 0.134,
-      "coverage_80": 0.793,
-      "sharpness": 0.015,
-      "crps": 0.13
+      "nmae": 0.1436,
+      "nrmse": 0.3142,
+      "coverage_80": 0.7932,
+      "sharpness": 0.0152,
+      "crps": 0.8164
     },
     "PVG_S2": {
       "n_samples": 1465,
-      "nmae": 0.093,
-      "nrmse": 0.146,
-      "coverage_80": 0.781,
-      "sharpness": 0.015,
-      "crps": 0.12
+      "nmae": 0.1627,
+      "nrmse": 0.3664,
+      "coverage_80": 0.7809,
+      "sharpness": 0.0145,
+      "crps": 0.7372
     }
   }
 }
