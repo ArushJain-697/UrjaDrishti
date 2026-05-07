@@ -8,6 +8,9 @@ FRONTEND_DIR="${ROOT_DIR}/frontend"
 VENV_DIR="${BACKEND_DIR}/venv"
 
 cleanup() {
+  if [[ -n "${BACKEND_PID:-}" ]]; then
+    kill "${BACKEND_PID}" >/dev/null 2>&1 || true
+  fi
   if [[ -n "${FRONTEND_PID:-}" ]]; then
     kill "${FRONTEND_PID}" >/dev/null 2>&1 || true
   fi
@@ -51,7 +54,7 @@ ensure_dir "${BACKEND_DIR}"
 ensure_dir "${FRONTEND_DIR}"
 
 echo ""
-echo "[1/5] Setting up backend environment..."
+echo "[1/3] Setting up backend environment..."
 cd "${BACKEND_DIR}"
 
 if [[ ! -d "${VENV_DIR}" ]]; then
@@ -66,25 +69,18 @@ python -m pip install -r requirements.txt
 echo "Backend environment ready."
 
 echo ""
-echo "[2/5] Running Person 2's forecasting model..."
-echo "       (This also generates Person 3's explanations)"
-PYTHONPATH="${BACKEND_DIR}" python -m src.ml.forecasting.main
-echo "Person 2 + Person 3 pipeline completed."
+echo "[2/3] Starting backend..."
+uvicorn src.main:app --reload --port 8000 &
+BACKEND_PID=$!
+echo "Backend running on http://localhost:8000"
 
 echo ""
-echo "[3/5] Running Person 4's evaluation scripts..."
-PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.test_baselines
-PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.test_harness
-PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.run_stress_evaluation
-PYTHONPATH="${BACKEND_DIR}" python -m src.ml.evaluation.run_day5_report
-echo "Person 4 evaluation completed."
-
-echo ""
-echo "[4/5] Starting frontend..."
+echo "[3/3] Starting frontend..."
 cd "${FRONTEND_DIR}"
 npm install
 npm run dev &
 FRONTEND_PID=$!
+echo "Frontend running on http://localhost:5173"
 
 echo ""
 echo "=========================================="
@@ -92,8 +88,10 @@ echo "   SYSTEM READY"
 echo "=========================================="
 echo ""
 echo "Dashboard: http://localhost:5173"
+echo "API docs:  http://localhost:8000/docs"
 echo ""
 echo "Press Ctrl+C to stop everything"
 echo ""
 
 wait "${FRONTEND_PID}"
+wait "${BACKEND_PID}"

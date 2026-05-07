@@ -43,7 +43,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [1/5] Setting up backend environment...
+echo [1/3] Setting up backend environment...
 cd /d "%BACKEND_DIR%"
 
 if not exist "venv" (
@@ -62,30 +62,11 @@ if errorlevel 1 exit /b 1
 echo Backend environment ready.
 
 echo.
-echo [2/5] Running Person 2's forecasting model...
-echo        (This also generates Person 3's explanations)
-set "PYTHONPATH=%BACKEND_DIR%"
-%PYTHON_BIN% -m src.ml.forecasting.main
-if errorlevel 1 (
-    echo ERROR: Person 2 + Person 3 pipeline failed.
-    exit /b 1
-)
-echo Person 2 + Person 3 pipeline completed.
+echo [2/3] Starting backend...
+start "UrjaDrishti Backend" cmd /k "uvicorn src.main:app --reload --port 8000"
 
 echo.
-echo [3/5] Running Person 4's evaluation scripts...
-%PYTHON_BIN% -m src.ml.evaluation.test_baselines
-if errorlevel 1 exit /b 1
-%PYTHON_BIN% -m src.ml.evaluation.test_harness
-if errorlevel 1 exit /b 1
-%PYTHON_BIN% -m src.ml.evaluation.run_stress_evaluation
-if errorlevel 1 exit /b 1
-%PYTHON_BIN% -m src.ml.evaluation.run_day5_report
-if errorlevel 1 exit /b 1
-echo Person 4 evaluation completed.
-
-echo.
-echo [4/5] Starting frontend...
+echo [3/3] Starting frontend...
 cd /d "%FRONTEND_DIR%"
 npm install
 if errorlevel 1 exit /b 1
@@ -98,9 +79,7 @@ echo    SYSTEM READY
 echo ==========================================
 echo.
 echo Dashboard: http://localhost:5173
+echo API docs:  http://localhost:8000/docs
 echo.
-echo Reports: backend\src\ml\evaluation\reports
-echo Plots:   data\evaluation_plots
-echo.
-echo You can close this window; frontend keeps running in a separate terminal.
+echo You can close this window; processes keep running in separate terminals.
 exit /b 0
