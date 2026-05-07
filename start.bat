@@ -62,11 +62,20 @@ if errorlevel 1 exit /b 1
 echo Backend environment ready.
 
 echo.
-echo [2/3] Starting backend...
+echo [2/4] Generating forecasting models...
+set "PYTHONPATH=%BACKEND_DIR%"
+%PYTHON_BIN% -m src.ml.forecasting.main
+if errorlevel 1 (
+    echo ERROR: Model generation failed.
+    exit /b 1
+)
+
+echo.
+echo [3/4] Starting backend...
 start "UrjaDrishti Backend" cmd /k "uvicorn src.main:app --reload --port 8000"
 
 echo.
-echo [3/3] Starting frontend...
+echo [4/4] Starting frontend...
 cd /d "%FRONTEND_DIR%"
 npm install
 if errorlevel 1 exit /b 1

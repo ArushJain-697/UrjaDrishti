@@ -83,7 +83,14 @@ def train_stage1(X_train, y_train, X_calib, y_calib, X_val, y_val):
 
 
 def _predict_interval_clipped(cqr_model, X):
-    p50, pis = cqr_model.predict_interval(X)
+    if isinstance(X, pd.DataFrame):
+        from src.ml.forecasting.feature_engineering import get_feature_names
+        train_cols = get_feature_names()
+        X_model = X[[c for c in train_cols if c in X.columns]]
+    else:
+        X_model = X
+
+    p50, pis = cqr_model.predict_interval(X_model)
     p10_raw = pis[:, 0, 0]
     p90_raw = pis[:, 1, 0]
 

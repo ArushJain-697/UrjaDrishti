@@ -69,13 +69,17 @@ python -m pip install -r requirements.txt
 echo "Backend environment ready."
 
 echo ""
-echo "[2/3] Starting backend..."
+echo "[2/4] Generating forecasting models..."
+PYTHONPATH="${BACKEND_DIR}" python -m src.ml.forecasting.main
+
+echo ""
+echo "[3/4] Starting backend..."
 uvicorn src.main:app --reload --port 8000 &
 BACKEND_PID=$!
 echo "Backend running on http://localhost:8000"
 
 echo ""
-echo "[3/3] Starting frontend..."
+echo "[4/4] Starting frontend..."
 cd "${FRONTEND_DIR}"
 npm install
 npm run dev &
