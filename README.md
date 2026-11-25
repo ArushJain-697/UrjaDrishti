@@ -1,304 +1,193 @@
-# UrjaDrishti — KREDL / KSPDCL Renewable Forecasting
+<div align="center">
 
-UrjaDrishti is an **AI-enabled forecasting system** for Karnataka renewable generation. It sits on top of existing SCADA-style data flows **without modifying legacy systems**: forecasts and uncertainty are served to operators through a **FastAPI backend** and a **React (Vite) dashboard**.
+# UrjaDrishti ಊರ್ಜಾ ದೃಷ್ಟಿ
 
-**What you get**
+**Day-ahead solar and wind forecasts for Karnataka that say how sure they are, hour by hour**
 
-- Plant and cluster forecasts with **P10 / P50 / P90** (80% prediction intervals)
-- **Explainability** (SHAP-driven signals mapped to operator-facing alerts)
-- **Evaluation** (baselines, holdout metrics, stress scenarios, report artifacts)
-- Dashboard areas: **Plant**, **Cluster**, **Evaluation**, **Logbook**, **War Room**
-- **English / Kannada** UI where implemented
+*Real archived ECMWF · GFS · ICON forecasts → physics → LightGBM quantiles → per-tier conformal bands → a schedule a dispatcher reviews only where it matters*
 
-**Problem in one sentence:** Solar and wind output swing with weather and asset physics; operators need **accurate point forecasts**, **honest uncertainty**, and **plain-language drivers**—on-premise, without cloud-hosted training or inference on sensitive data.
+`offline after one fetch` · `runs on an Arm CPU` · `sealed test year, scored once` · `9 invariant tests`
+
+</div>
 
 ---
 
-## Architecture (high level)
+## Why it exists
+
+Every evening a Karnataka renewable generator files tomorrow's hour-by-hour schedule with the state load
+despatch centre. Under the CERC deviation settlement rules, energy delivered outside a tolerance band around
+that schedule is charged. The forecast behind the schedule is usually one number per hour, with no
+sign of whether it will be close or wildly wrong.
+
+Most of the money is lost in a small share of hours: monsoon afternoons when convective cloud arrives
+earlier than forecast, or wind ramps that the weather models time differently. In the sealed test year
+below, **the 17–22% of hours this system marks RED account for 72–76% of all the energy outside the band.**
+A dispatcher who knew which hours those were could spend their attention there.
+
+## What it does
+
+| Capability | What it means |
+|---|---|
+| Real forecast inputs | The model only sees what three global weather models (ECMWF IFS, GFS, ICON) forecast ~24 h ahead, from Open-Meteo's archive of past runs |
+| Physics first | pvlib (sun position, irradiance transposition, cell temperature, inverter clipping) and a turbine power curve turn weather into MW before any learning |
+| Full distribution | LightGBM predicts 9 quantiles (P10…P90) of generation per plant-hour |
+| Honest bands | Conformalized quantile regression, calibrated **separately for each confidence tier** |
+| Confidence tiers | GREEN / AMBER / RED per hour, from forecast-time signals only |
+| Deterministic schedule | Filed schedule = P50; RED hours require a dispatcher. No model decides what gets filed |
+| Edge path | A 30 KB quantile MLP exported to ONNX fp32/int8, benchmarked on Arm64 (Pi 5 script included) |
+| Replay desk | Dashboard of every validation day (and the test year, now it is scored), hardest days first |
+
+## How it works
 
 ```mermaid
 flowchart LR
-  subgraph data [Data layer]
-    Syn[Synthetic feature matrix]
-    Stress[Stress scenario CSVs]
-  end
-  subgraph ml [ML layer]
-    Train[Train LightGBM + CQR]
-    Inf[Inference P10 P50 P90]
-    Eval[Evaluation and reports]
-  end
-  subgraph serve [Application]
-    API[FastAPI backend :8000]
-    UI[Vite React dashboard :5173]
-  end
-  Syn --> Train
-  Train --> Inf
-  Syn --> Eval
-  Stress --> Eval
-  Inf --> API
-  Eval --> API
-  API --> UI
+    A[ERA5 reanalysis<br/>truth only] --> P1[Physics<br/>pvlib · power curve]
+    B[ECMWF · GFS · ICON<br/>day-ahead runs] --> P2[Physics prior<br/>per weather model]
+    P1 --> Y[target y = MW / capacity]
+    P2 --> F[Features<br/>forecast-only, leak-tested]
+    F --> Q[LightGBM<br/>9 quantiles]
+    Q --> G{Physics gate<br/>0 ≤ q ≤ cap · 0 at night}
+    G --> T[Tier<br/>band width · model disagreement]
+    T --> C[Conformal per tier<br/>calib weeks]
+    C --> S[Schedule = P50<br/>RED → dispatcher]
 ```
 
-**Runtime URLs (after `start.sh` / `start.bat`)**
+The folder tree is the diagram: `urja/data → physics → features → models → uncertainty → decision → eval → edge → api`.
 
-| Service | URL | Notes |
-|--------|-----|--------|
-| **Frontend (dashboard)** | http://localhost:5173 | Vite dev server |
-| **Backend (REST API)** | http://localhost:8000 | FastAPI (`uvicorn`) |
-| **OpenAPI / Swagger** | http://localhost:8000/docs | Interactive API docs |
+## The trap: the Flat-Band Trap
 
-The dashboard talks to the backend over HTTP; keep both processes running for a full demo.
+The obvious way to make an "80% band" is to calibrate it on all hours at once. On average it then covers
+80%, so it looks right. But it borrows its coverage from easy hours: it is **too wide on calm hours and too
+narrow on exactly the hours that cost money**. In the sealed test year, the single-calibration band covered
+only 68% of RED solar hours and 73% of RED wind hours.
 
----
+UrjaDrishti assigns each hour a tier *before* calibration, from things known when the forecast is made
+(the raw band width and how far the three weather models disagree), then calibrates each tier on its own
+calibration data (Mondrian conformal prediction). Every tier then lands near its target. Toggle it live in
+the dashboard's *Flat-Band Trap* panel.
 
-## Data and physics (conceptual)
+## Results
 
-```mermaid
-flowchart TB
-  subgraph inputs [Raw signals]
-    GHI[GHI temperature cloud]
-    WS[Wind speed direction]
-  end
-  subgraph physics [Physics transforms]
-    CMF[CMF solar: actual over clear-sky]
-    PCF[Power curve fraction wind]
-  end
-  subgraph model [Global model]
-    LGBM[LightGBM features + assets]
-    S2[Stage-2 residual correction]
-  end
-  GHI --> CMF
-  WS --> PCF
-  CMF --> LGBM
-  PCF --> LGBM
-  LGBM --> S2
-```
+All errors are % of plant AC capacity; solar is scored on daylight hours only (counting night, where every
+method is trivially right, would roughly halve every solar number). "Energy outside ±10% band" is a
+deviation-settlement proxy: the share of capacity-hours by which the delivered energy misses the schedule
+by more than the free band. Every number below is generated from `results/*.json` by
+`scripts/readme_numbers.py`.
 
-- **Data:** Synthetic hourly history (Gaussian Copula–style multivariate series) mimicking Karnataka portfolio behaviour; **six plants**, **two clusters**; separate **stress** CSVs (cloud ramp, monsoon onset, wind spike, low irradiance)—evaluation only, not training.
-- **Solar:** **Cloud Modification Factor (CMF)** = actual GHI / clear-sky GHI (bounded, season-stable).
-- **Wind:** Hub-relevant wind passed through a **turbine power curve** so the model learns residuals, not the full nonlinear speed-to-power map.
-- **Uncertainty:** **Conformalized Quantile Regression (CQR)** via MAPIE on top of quantile LightGBM models—target **~80% empirical coverage** for the P10–P90 band on holdout data.
+<!-- numbers:start (generated by scripts/readme_numbers.py; do not edit) -->
+**Sealed test year, scored once** (2025-11-01 to 2026-10-31, n = 8,900 solar hours, 17,520 wind hours)
 
----
+| | Model nMAE | Best baseline (nMAE) | NWP ensemble nMAE | CRPS model / NWP ens. | P10-P90 coverage (target 80%) | Energy outside ±10% band vs best baseline |
+|---|---|---|---|---|---|---|
+| solar | **5.23%** | nwp_ensemble (5.17%) | 5.17% | 0.0405 / 0.0423 | 82.0% | **−9%** |
+| wind | **4.06%** | linear_mos (4.81%) | 8.33% | 0.0315 / 0.0587 | 79.4% | **−32%** |
 
-## Forecasting stack (two stages)
+| Tier (per-tier calibration) | solar: share of hours · coverage · share of out-of-band energy | wind: share of hours · coverage · share of out-of-band energy |
+|---|---|---|
+| GREEN | 45% · 80.4% · 2% | 59% · 77.5% · 5% |
+| AMBER | 34% · 83.9% · 22% | 25% · 80.5% · 23% |
+| RED | 22% · 82.3% · 76% | 17% · 84.3% · 72% |
 
-```mermaid
-flowchart LR
-  D[Day-ahead features] --> S1[Stage 1 quantiles + CQR]
-  A[Recent actuals same day] --> S2[Stage 2 residual model]
-  S1 --> S2
-  S2 --> Out[P10 P50 P90 + optional MinT reconciliation]
-```
+| Ablation (coverage in RED hours / nMAE) | solar | wind |
+|---|---|---|
+| full model, per-tier calibration | 82.3% / 5.23% | 84.3% / 4.06% |
+| one calibration for all hours (the trap) | 68.3% / 5.23% | 72.7% / 4.06% |
+| without NWP-disagreement features | 81.2% / 5.19% | 82.3% / 4.09% |
+| ICON only (1 weather model, not 3) | 72.1% / 5.80% | 82.7% / 4.11% |
+| without the physics prior | 81.1% / 5.38% | 82.2% / 4.12% |
 
-- **Stage 1:** Global LightGBM across plants (asset encodings distinguish plants); outputs median and raw quantiles; **CQR** calibrates intervals.
-- **Stage 2:** Uses recent forecast errors (e.g. last hours) to **correct** remaining hours for intra-day-style updates.
-- **Reconciliation (Person 3):** **MinT** can align plant vs cluster totals so dashboards stay numerically consistent.
+**Validation (design choices were made looking at this)** (2025-04-01 to 2025-11-01, n = 5,453 solar hours, 10,272 wind hours)
 
----
+| | Model nMAE | Best baseline (nMAE) | NWP ensemble nMAE | CRPS model / NWP ens. | P10-P90 coverage (target 80%) | Energy outside ±10% band vs best baseline |
+|---|---|---|---|---|---|---|
+| solar | **6.03%** | linear_mos (6.50%) | 7.35% | 0.0469 / 0.0595 | 78.3% | **−11%** |
+| wind | **5.62%** | linear_mos (6.94%) | 11.48% | 0.0442 / 0.0809 | 78.6% | **−30%** |
 
-## Prerequisites
+| Tier (per-tier calibration) | solar: share of hours · coverage · share of out-of-band energy | wind: share of hours · coverage · share of out-of-band energy |
+|---|---|---|
+| GREEN | 35% · 70.1% · 2% | 41% · 76.8% · 3% |
+| AMBER | 38% · 81.3% · 28% | 27% · 79.0% · 19% |
+| RED | 28% · 84.3% · 70% | 32% · 80.5% · 78% |
 
-- **Python 3.10+** (3.11 / 3.12 recommended)
-- **Node.js** LTS (18+ recommended) and **npm**
-- **Git**
-- **uvicorn** is pulled in via `backend/requirements.txt` (used to serve the API on port **8000**)
+| Ablation (coverage in RED hours / nMAE) | solar | wind |
+|---|---|---|
+| full model, per-tier calibration | 84.3% / 6.03% | 80.5% / 5.62% |
+| one calibration for all hours (the trap) | 74.8% / 6.03% | 70.3% / 5.62% |
+| without NWP-disagreement features | 84.3% / 6.04% | 78.9% / 5.60% |
+| ICON only (1 weather model, not 3) | 85.1% / 6.18% | 79.1% / 5.59% |
+| without the physics prior | 84.8% / 6.09% | 77.3% / 5.61% |
 
----
+**Edge benchmark: Apple M4** (arm64; Arm features: FEAT_DotProd, FEAT_I8MM, FEAT_BF16; 1 thread)
 
-## One-command startup
+| | Model | Size | Latency per plant-day (24 h) | 10k rows | CRPS (val) |
+|---|---|---|---|---|---|
+| solar | LightGBM, 9 quantiles (Python API) | – | 7.49 ms | – | 0.0469 |
+| solar | quantile MLP, ONNX fp32 | 30 KB | 21 µs | 2.55 ms | 0.0523 |
+| solar | quantile MLP, ONNX int8 | 14 KB | 26 µs | 3.88 ms | 0.0517 |
+| wind | LightGBM, 9 quantiles (Python API) | – | 7.02 ms | – | 0.0442 |
+| wind | quantile MLP, ONNX fp32 | 30 KB | 21 µs | 2.53 ms | 0.0483 |
+| wind | quantile MLP, ONNX int8 | 14 KB | 26 µs | 3.83 ms | 0.0497 |
+<!-- numbers:end -->
 
-From the **repository root**:
+### What the numbers say, plainly
 
-### macOS / Linux
+- **Wind:** the learned model beats the best operator-usable baseline (a linear correction of the three
+  forecasts) on accuracy and cuts out-of-band energy substantially. Most of that comes from correcting GFS's
+  large over-forecast of wind at these sites.
+- **Solar:** the point forecast is **not** better than simply averaging the three weather models. The value
+  for solar is the calibrated band and the tiers, not a better P50.
+- **Ablations:** the per-tier calibration is the part that earns its place in both splits. The rest
+  depends on the split. On validation, three weather models instead of one and the physics prior made no
+  difference. On the sealed test year they mattered for solar: ICON alone was worse (nMAE 5.80% vs 5.23%,
+  RED-hour coverage 72% vs 82%), and removing the physics prior cost 0.15 points. One season of validation
+  was not enough to see that.
+- **Edge:** int8 quantization halves the MLP's size but makes it *slower* at this size: quantize/dequantize
+  overhead costs more than int8 arithmetic saves on a 64-unit network. LightGBM in Python spends most of its
+  ~7 ms on call overhead; the ONNX MLP does a plant-day in tens of microseconds. All of it fits a Pi easily.
+
+## Honest limits (read before the numbers)
+
+- **Plant output is simulated.** Karnataka plant-level SCADA is not public, so "actual" generation is ERA5
+  reanalysis weather run through the same physics model. The *forecast error* the model learns is real (real
+  archived forecasts vs. reanalysis); the plant behaviour (soiling, outages, curtailment, real turbine curves)
+  is not. ERA5 and ECMWF IFS come from the same modelling centre, which may flatter ECMWF.
+- **Capacities are modelled 100 MW blocks** at real locations, not the real plants' nameplate.
+- **Lead time is ~24 h** (each hour's value from the run a day earlier). A real schedule filed the previous
+  morning has a 14–38 h lead, so real errors would be somewhat larger.
+- **The deviation proxy is not rupees.** CERC's actual charges depend on frequency-linked rates and
+  state-specific bands; we report energy outside a ±10% band only.
+- **The validation split was looked at many times** while designing tiers. Only the test year is clean.
+- **Edge numbers so far are from an Apple M4 (Arm64).** Raspberry Pi 5 numbers need `scripts/bench_pi.sh`
+  to be run on the board.
+
+Full inventory: [`docs/HONESTY.md`](docs/HONESTY.md). Design and decisions: [`docs/BIBLE.md`](docs/BIBLE.md).
+What went wrong along the way: [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md).
+
+## Run it
 
 ```bash
-bash start.sh
+bash scripts/reproduce.sh                       # fetch, train, evaluate, bench, test, build the dashboard
+.venv/bin/uvicorn urja.api.app:app --port 8000  # then open http://localhost:8000
 ```
 
-### Windows (CMD)
+After the first fetch (~2 minutes, public APIs, no keys) everything runs offline from `data/raw/`.
+The sealed test year is scored by `python -m urja.eval.run --final`, which refuses to run a second time.
 
-```bat
-start.bat
-```
+## Tests
 
-### What the scripts do (aligned with `start.sh` / `start.bat`)
+`pytest` runs 9 named invariants, including:
 
-1. **Backend environment** — Create `backend/venv` if needed, activate it, `pip install -r backend/requirements.txt`.
-2. **Forecasting models** — `PYTHONPATH=<backend> python -m src.ml.forecasting.main` (trains / refreshes `kredl_stage1.pkl`, `kredl_stage2.pkl`).
-3. **Evaluation** — Runs, in order:
-   - `python -m src.ml.evaluation.test_baselines`
-   - `python -m src.ml.evaluation.test_harness`
-   - `python -m src.ml.evaluation.run_stress_evaluation`
-   - `python -m src.ml.evaluation.run_day5_report`  
-   (working directory must be `backend` with `PYTHONPATH` set; the scripts do this for you.)
-4. **Backend server** — `uvicorn src.main:app --reload --port 8000` → **http://localhost:8000** (Swagger at **`/docs`**).
-5. **Frontend** — `npm install` and `npm run dev` in `frontend/` → **http://localhost:5173**.
+| Test | Claim it protects |
+|---|---|
+| `test_no_truth_leaks_into_features` | Scrambling the truth data changes the target but not a single feature value |
+| `test_splits_are_time_ordered_and_sealed` | train/calib < val < test, no overlap |
+| `test_gate_never_emits_impossible_power` | Quantiles never cross, never leave [0, capacity], solar is 0 at night (300 generated cases) |
+| `test_tier_is_monotone_in_uncertainty` | More uncertainty can never make an hour look safer (500 generated cases) |
+| `test_api_hides_test_year_until_scored` | The dashboard cannot show the sealed year before it is scored |
 
-On **macOS/Linux**, `start.sh` runs backend and frontend in the background and waits on the frontend; **Ctrl+C** stops both (see `trap` in the script).
+## History
 
-On **Windows**, `start.bat` opens **separate** terminal windows for uvicorn and Vite; you can close the launcher window after success.
-
----
-
-## What success looks like in the terminal
-
-You should see progress for **[1/5] … [5/5]** and messages such as:
-
-- `Backend environment ready.`
-- `Evaluation completed.` (after all four evaluation modules finish)
-- `SYSTEM READY`
-- `Dashboard: http://localhost:5173`
-- `API docs:  http://localhost:8000/docs` (printed by `start.sh`; `start.bat` prints the same URLs)
-
-On the frontend process you should also see Vite **ready** and **Local: http://localhost:5173/**.
-
-If any step fails, **fix that step first** (missing Python/npm, pip errors, missing `data/` files, etc.); both startup scripts are written to **fail fast** on model or evaluation errors where `set -e` / `exit /b 1` applies.
-
----
-
-## Generated outputs (where to look)
-
-### Evaluation report artifacts
-
-`backend/src/ml/evaluation/reports/`
-
-- `comparison_table.csv`
-- `quantile_calibration_points.csv`
-- `season_stratified_table.csv`
-- `sharpness_summary.csv`
-- `evaluation_section.md`
-
-### Stress evaluation plots / tables
-
-`data/evaluation_plots/`
-
-- `stress_metrics_summary.csv`
-- `cloud_ramp_interval_width.png`
-- `monsoon_onset_interval_width.png`
-- `wind_spike_width_vs_wind.png`
-- `calm_vs_stress_interval_width.png`
-- `quantile_reliability.png` (when produced by the reporting flow)
-
-### Trained model binaries
-
-- `backend/src/ml/forecasting/kredl_stage1.pkl`
-- `backend/src/ml/forecasting/kredl_stage2.pkl`
-
----
-
-## Frontend verification checklist
-
-With **backend (8000)** and **frontend (5173)** running, open **http://localhost:5173** and check:
-
-- **Plant:** forecast ribbon (P10/P50/P90), confidence band, explainability alerts
-- **Cluster:** reconciliation behaviour and stacked / aggregate views
-- **Evaluation:** metrics table, forecast ledger, model health where wired
-- **Logbook:** add / search / filter entries
-- **War Room:** fullscreen-style monitor if enabled
-- **Language:** English / Kannada toggle where implemented
-
----
-
-## 🚀 Deploy to Railway
-
-Ready to deploy? Follow our quick deployment guide:
-
-### Quick Deploy (5 minutes)
-1. Push to GitHub
-2. Run `railway login && railway up`
-3. Set environment variables in Railway dashboard
-4. Your app is live!
-
-📖 **Full Guide:** [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md)
-
-**Quick Links:**
-- 🚀 [Quick Start](./QUICKSTART_RAILWAY.md)
-- 📖 [Detailed Guide](./RAILWAY_DEPLOYMENT.md)
-- 🔗 [Railway Docs](https://docs.railway.app/)
-
----
-
-## Manual run (if you do not use `start.sh` / `start.bat`)
-
-All commands assume repo root unless noted.
-
-### Backend: train models only
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-python -m pip install -r requirements.txt
-PYTHONPATH=. python -m src.ml.forecasting.main
-```
-
-### Backend: API server (required for dashboard API calls)
-
-```bash
-cd backend
-source venv/bin/activate
-PYTHONPATH=. uvicorn src.main:app --reload --port 8000
-```
-
-Open **http://localhost:8000/docs** to inspect routes.
-
-### Backend: evaluation only (after models exist)
-
-```bash
-cd backend
-source venv/bin/activate
-PYTHONPATH=. python -m src.ml.evaluation.test_baselines
-PYTHONPATH=. python -m src.ml.evaluation.test_harness
-PYTHONPATH=. python -m src.ml.evaluation.run_stress_evaluation
-PYTHONPATH=. python -m src.ml.evaluation.run_day5_report
-```
-
-### Frontend only
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Point the frontend’s API base URL to **http://localhost:8000** if your build uses an env variable (see `frontend` config if requests fail).
-
----
-
-## Team and contributions
-
-```mermaid
-flowchart TB
-  P1[Person 1 Data and Physics]
-  P2[Person 2 Forecasting CQR]
-  P3[Person 3 SHAP Reconciliation]
-  P4[Person 4 Evaluation Stress]
-  P5[Person 5 Dashboard Submission]
-  P1 --> P2
-  P2 --> P3
-  P2 --> P4
-  P3 --> P5
-  P4 --> P5
-```
-
-| Person | Name | Focus |
-|--------|------|--------|
-| **Person 1** | Bhavya Garg | Synthetic data, physics features, stress scenario generators |
-| **Person 2** | Naman Bhandari | Global LightGBM, two-stage forecasts, MAPIE CQR |
-| **Person 3** | Surya Kiran Basava | SHAP explainability, alerts, MinT reconciliation |
-| **Person 4** | Manvik Kumar Gupta | Holdout evaluation, baselines, stress validation, reports |
-| **Person 5** | Arush Kumar Jain | React dashboard, integration, demo and submission packaging |
-
----
-
-## Roadmap (not in this repo prototype)
-
-Production narrative includes **spatio-temporal graph models** for weather propagation across plants and an **on-premise small language model** for richer alerts. The current hackathon path is **LightGBM + CQR + templates + MinT**, which is enough to demonstrate end-to-end value and evaluation discipline.
-
----
-
-## License / data notice
-
-Training uses **synthetic** Karnataka-like data. **No real SCADA** is bundled; deployment assumptions (on-prem, no cloud inference on sensitive data) are design goals described in team documentation.
+v1 of UrjaDrishti was a five-person hackathon build (May 2026) on synthetic data. Its headline number
+compared against persistence, and its "raw NWP" baseline was fitted on the *observed* weather of the hour
+being forecast, so it beat the model by 5×. v2 (this branch) was rebuilt from scratch to fix that; v1 is
+preserved on `main`'s history.
