@@ -16,19 +16,11 @@ import numpy as np
 import pandas as pd
 
 from urja import config as C
+from urja.models.common import LEVELS, gate
 from urja.uncertainty import tiers as T
 
-LEVELS = tuple(round(x, 2) for x in np.arange(0.1, 0.91, 0.1))   # 0.1 ... 0.9
 PARAMS = dict(learning_rate=0.05, num_leaves=31, min_child_samples=40, subsample=0.8, subsample_freq=1,
               colsample_bytree=0.8, reg_lambda=1.0, n_estimators=400, verbose=-1, random_state=C.SEED)
-
-
-def gate(q: np.ndarray, daylight: np.ndarray | None) -> np.ndarray:
-    """Deterministic physics gate. Sorts quantiles (no crossing), clips to [0, 1], zero at night."""
-    q = np.sort(np.clip(q, 0.0, 1.0), axis=1)
-    if daylight is not None:
-        q[~np.asarray(daylight, bool)] = 0.0
-    return q
 
 
 @dataclass
