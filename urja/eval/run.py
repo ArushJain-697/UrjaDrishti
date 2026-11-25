@@ -120,7 +120,7 @@ def run(split: str) -> dict:
         k = {"n_hours": int(len(d)), "baselines": baselines(df, kind, split)}
         main = QuantileForecaster(kind, cols).fit(df).calibrate(df)
         k["model"] = score_model(main, d)
-        glob = QuantileForecaster(kind, cols, mondrian=False, models=main.models).calibrate(df)
+        glob = QuantileForecaster(kind, cols, mondrian=False, models=main.models, mos=main.mos).calibrate(df)
         k["ablation"] = {"global_conformal": score_model(glob, d)}
         for name, drop in ABLATIONS.items():
             c2 = feature_columns(df, drop)
