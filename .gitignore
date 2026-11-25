@@ -1,35 +1,25 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-.Python
-*.egg-info/
-dist/
-build/
 .venv/
-venv/
-env/
-*.pkl
-!backend/src/ml/forecasting/*.pkl
-*.joblib
-models/
+*.egg-info/
+.pytest_cache/
+.hypothesis/
+
+# Fetched raw data is re-downloadable (scripts/reproduce.sh); keep it out of git
+data/raw/
+
+# Trained artefacts are rebuilt by reproduce.sh
+artifacts/
 
 # Node
 node_modules/
-dist/
+web/dist/
 *.log
 
-# Environment files — never commit these
+# Environment
 .env
 .env.local
 
 # OS
 .DS_Store
-Thumbs.db
-
-# Data
-# data/*.csv  <-- Commented out to allow Person 1's dataset push
-!data/.gitkeep
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb
