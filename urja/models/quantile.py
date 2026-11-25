@@ -29,6 +29,8 @@ class QuantileForecaster:
     cols: list[str]
     models: dict = field(default_factory=dict)
     mondrian: bool = True        # per-tier conformal (True) or one global correction (ablation)
+    blend: bool = True           # shift the distribution toward the NWP-ensemble mean (weight fit on data)
+    w_ens: float = 0.0           # 0 = LightGBM median, 1 = NWP-ensemble mean
     qhat: dict = field(default_factory=dict)   # CQR correction per tier, capacity units
 
     def _rows(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -43,10 +45,36 @@ class QuantileForecaster:
             self.models[a] = m
         return self
 
-    def raw(self, df: pd.DataFrame) -> np.ndarray:
+    def _lgbm(self, df: pd.DataFrame) -> np.ndarray:
         X = df[self.cols]
-        q = np.column_stack([self.models[a].predict(X) for a in LEVELS])
+        return np.column_stack([self.models[a].predict(X) for a in LEVELS])
+
+    def raw(self, df: pd.DataFrame) -> np.ndarray:
+        q = self._lgbm(df)
+        if self.w_ens:
+            # Forecast combination: move the whole distribution so its median sits at
+            # (1 - w) * LightGBM median + w * NWP-ensemble mean. Width is unchanged.
+            ens = df["phys_mean"].fillna(pd.Series(q[:, 4], index=df.index)).to_numpy()
+            q = q + (self.w_ens * (ens - q[:, 4]))[:, None]
         return gate(q, df["daylight"].to_numpy() if self.kind == "solar" else None)
+
+    def _calib_rows(self, df: pd.DataFrame, half: int) -> pd.DataFrame:
+        """Calibration weeks split in two: half 0 fits the blend weight, half 1 the conformal step."""
+        cal = self._rows(df[df["split"] == "calib"])
+        week = pd.to_datetime(cal["time"]).dt.isocalendar().week.astype(int)
+        return cal[(week // C.CALIB_EVERY_NTH_WEEK) % 2 == half]
+
+    def fit_blend(self, df: pd.DataFrame) -> "QuantileForecaster":
+        if not self.blend:
+            self.w_ens = 0.0
+            return self
+        cal = self._calib_rows(df, 0)
+        q50, ens, y = self._lgbm(cal)[:, 4], cal["phys_mean"].to_numpy(), cal["y"].to_numpy()
+        ok = ~np.isnan(ens)
+        grid = np.round(np.arange(0, 1.0001, 0.05), 2)
+        err = [np.mean(np.abs(np.clip((1 - w) * q50[ok] + w * ens[ok], 0, 1) - y[ok])) for w in grid]
+        self.w_ens = float(grid[int(np.argmin(err))])
+        return self
 
     def tiers(self, df: pd.DataFrame, q: np.ndarray) -> np.ndarray:
         return T.assign(q[:, -1] - q[:, 0], df["phys_range"].to_numpy())
@@ -57,7 +85,9 @@ class QuantileForecaster:
         return float(np.quantile(scores, min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)))
 
     def calibrate(self, df: pd.DataFrame, alpha: float = 0.2) -> "QuantileForecaster":
-        cal = self._rows(df[df["split"] == "calib"])
+        self.fit_blend(df)
+        # If the data chose w = 0 the model is the plain LightGBM, so all calibration weeks are used.
+        cal = self._calib_rows(df, 1) if self.w_ens else self._rows(df[df["split"] == "calib"])
         q = self.raw(cal)
         y = cal["y"].to_numpy()
         scores = np.maximum(q[:, 0] - y, y - q[:, -1])

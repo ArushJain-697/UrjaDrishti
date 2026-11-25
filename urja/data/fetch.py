@@ -37,9 +37,12 @@ def _get(url: str, params: dict, tries: int = 4) -> dict:
 
 
 def _frame(payload: dict, tz: str) -> pd.DataFrame:
+    """Payload is always requested in UTC, then converted. Asking Open-Meteo for Asia/Kolkata
+    shifts the data by a whole 5 h and labels it as +5:30, putting every row 30 min early
+    (found in v3 via the NASA cross-check; BUILD_LOG #11)."""
     h = payload["hourly"]
     df = pd.DataFrame(h)
-    df["time"] = pd.to_datetime(df["time"]).dt.tz_localize(tz)
+    df["time"] = pd.to_datetime(df["time"]).dt.tz_localize("UTC").dt.tz_convert(tz)
     return df.set_index("time")
 
 
@@ -48,7 +51,7 @@ def fetch_truth(site: C.Site) -> pd.DataFrame:
     if path.exists():
         return pd.read_parquet(path)
     p = dict(latitude=site.lat, longitude=site.lon, start_date=C.PERIOD_START, end_date=C.PERIOD_END,
-             hourly=",".join(C.TRUTH_VARS), timezone=site.tz, wind_speed_unit="ms", models="era5")
+             hourly=",".join(C.TRUTH_VARS), timezone="UTC", wind_speed_unit="ms", models="era5")
     df = _frame(_get(ARCHIVE_URL, p), site.tz)
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(path)
@@ -64,7 +67,7 @@ def fetch_forecast(site: C.Site, model: str, day: int = 1) -> pd.DataFrame:
     suffix = f"_previous_day{day}"
     vars_ = ",".join(v + suffix for v in C.NWP_VARS)
     p = dict(latitude=site.lat, longitude=site.lon, start_date=C.PERIOD_START, end_date=C.PERIOD_END,
-             hourly=vars_, timezone=site.tz, wind_speed_unit="ms", models=model)
+             hourly=vars_, timezone="UTC", wind_speed_unit="ms", models=model)
     df = _frame(_get(PREVIOUS_RUNS_URL, p), site.tz)
     df.columns = [c.removesuffix(suffix) for c in df.columns]
     path.parent.mkdir(parents=True, exist_ok=True)
