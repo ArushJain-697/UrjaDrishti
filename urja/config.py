@@ -41,12 +41,16 @@ LEAD_SUFFIX = "_previous_day1"
 
 # ECMWF IFS 0.25 deg previous-run archive starts in spring 2024.
 PERIOD_START = "2024-04-01"
-PERIOD_END = "2025-10-31"
+PERIOD_END = "2026-10-31"
 
-# Split. The held-out window is touched once, by eval/heldout.py, after all choices are frozen.
-TRAIN_END = "2025-03-31"          # train + calibration live before this date
-HELDOUT_START = "2025-04-01"      # pre-monsoon, monsoon and post-monsoon 2025
-CALIB_EVERY_NTH_WEEK = 4          # every 4th ISO week of the dev period is the conformal calibration set
+# Splits (time-ordered, no shuffling):
+#   train  2024-04 .. 2025-03, minus every 4th ISO week -> fits the LightGBM quantiles
+#   calib  every 4th ISO week of that year              -> conformal correction per tier
+#   val    2025-04 .. 2025-10                           -> every design choice was looked at here
+#   test   2025-11 .. 2026-10                           -> SEALED: scored once by eval/run.py --final
+VAL_START = "2025-04-01"
+TEST_START = "2025-11-01"
+CALIB_EVERY_NTH_WEEK = 4
 
 # Physics
 PV_DC_AC_RATIO = 1.25             # 125 MWp DC behind 100 MW AC -> midday clipping
@@ -54,10 +58,11 @@ PV_TILT_DEG = 14.0                # ~latitude, south facing
 PV_GAMMA = -0.0037                # per degC, crystalline Si
 WIND_CUT_IN, WIND_RATED, WIND_CUT_OUT = 3.0, 12.0, 25.0   # m/s, generic IEC class II curve
 
-# Uncertainty tiers (from normalised P10-P90 width). Fixed on the dev set, frozen before held-out.
-TIER_AMBER_WIDTH = 0.20           # band wider than 20% of capacity -> AMBER
-TIER_RED_WIDTH = 0.40             # wider than 40% of capacity -> RED: dispatcher must review
-TIER_RED_DISAGREEMENT = 0.25      # NWP models disagree by >25% of capacity -> RED regardless
+# Uncertainty tiers, from the RAW (pre-conformal) P10-P90 width and NWP disagreement, in capacity
+# units. Chosen on the calib split (error rises ~10x from GREEN to RED there), frozen before held-out.
+TIER_AMBER_WIDTH = 0.10           # raw band wider than 10% of capacity -> AMBER
+TIER_RED_WIDTH = 0.25             # wider than 25% of capacity -> RED: dispatcher must review
+TIER_RED_DISAGREEMENT = 0.40      # the three NWP models span >40% of capacity -> RED regardless
 
 # Deviation settlement (simplified CERC DSM shape: free band, then penalty per MWh).
 DSM_FREE_BAND = 0.10              # +-10% of AC capacity, no charge

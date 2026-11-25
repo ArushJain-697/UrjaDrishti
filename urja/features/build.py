@@ -80,10 +80,11 @@ def _site_table(site: C.Site) -> pd.DataFrame:
 
 def assign_split(t: pd.Series) -> pd.Series:
     t = pd.to_datetime(t)
-    held = t >= pd.Timestamp(C.HELDOUT_START, tz=C.TZ)
+    test = t >= pd.Timestamp(C.TEST_START, tz=C.TZ)
+    val = (~test) & (t >= pd.Timestamp(C.VAL_START, tz=C.TZ))
     week = t.dt.isocalendar().week.astype(int)
-    calib = (~held) & (week % C.CALIB_EVERY_NTH_WEEK == 0)
-    return pd.Series(np.select([held, calib], ["heldout", "calib"], "train"), index=t.index)
+    calib = (~test) & (~val) & (week % C.CALIB_EVERY_NTH_WEEK == 0)
+    return pd.Series(np.select([test, val, calib], ["test", "val", "calib"], "train"), index=t.index)
 
 
 def build_table() -> pd.DataFrame:

@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from urja import config as C
+from urja.uncertainty import tiers as T
 
 LEVELS = tuple(round(x, 2) for x in np.arange(0.1, 0.91, 0.1))   # 0.1 ... 0.9
 PARAMS = dict(learning_rate=0.05, num_leaves=31, min_child_samples=40, subsample=0.8, subsample_freq=1,
@@ -35,7 +36,8 @@ class QuantileForecaster:
     kind: str
     cols: list[str]
     models: dict = field(default_factory=dict)
-    qhat: float = 0.0            # CQR correction for the P10-P90 band, capacity units
+    mondrian: bool = True        # per-tier conformal (True) or one global correction (ablation)
+    qhat: dict = field(default_factory=dict)   # CQR correction per tier, capacity units
 
     def _rows(self, df: pd.DataFrame) -> pd.DataFrame:
         d = df[df["kind"] == self.kind]
@@ -54,13 +56,28 @@ class QuantileForecaster:
         q = np.column_stack([self.models[a].predict(X) for a in LEVELS])
         return gate(q, df["daylight"].to_numpy() if self.kind == "solar" else None)
 
+    def tiers(self, df: pd.DataFrame, q: np.ndarray) -> np.ndarray:
+        return T.assign(q[:, -1] - q[:, 0], df["phys_range"].to_numpy())
+
+    @staticmethod
+    def _conformal(scores: np.ndarray, alpha: float) -> float:
+        n = len(scores)
+        return float(np.quantile(scores, min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)))
+
     def calibrate(self, df: pd.DataFrame, alpha: float = 0.2) -> "QuantileForecaster":
         cal = self._rows(df[df["split"] == "calib"])
         q = self.raw(cal)
-        lo, hi, y = q[:, 0], q[:, -1], cal["y"].to_numpy()
-        scores = np.maximum(lo - y, y - hi)
-        n = len(scores)
-        self.qhat = float(np.quantile(scores, min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)))
+        y = cal["y"].to_numpy()
+        scores = np.maximum(q[:, 0] - y, y - q[:, -1])
+        glob = self._conformal(scores, alpha)
+        if not self.mondrian:
+            self.qhat = {t: glob for t in T.TIERS}
+            return self
+        tier = self.tiers(cal, q)
+        for t in T.TIERS:
+            s = scores[tier == t]
+            # A tier with too few calibration points falls back to the global correction.
+            self.qhat[t] = self._conformal(s, alpha) if len(s) >= 50 else glob
         return self
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -68,7 +85,10 @@ class QuantileForecaster:
         q = self.raw(df)
         out = pd.DataFrame(q, columns=[f"q{int(a * 100)}" for a in LEVELS], index=df.index)
         day = df["daylight"].to_numpy() if self.kind == "solar" else np.ones(len(df), bool)
-        band = np.column_stack([q[:, 0] - self.qhat, q[:, 4], q[:, -1] + self.qhat])
+        tier = self.tiers(df, q)
+        qh = np.array([self.qhat[t] for t in tier])
+        band = np.column_stack([q[:, 0] - qh, q[:, 4], q[:, -1] + qh])
         band = gate(band, day)
         out["p10"], out["p50"], out["p90"] = band[:, 0], band[:, 1], band[:, 2]
+        out["tier"] = tier
         return out
