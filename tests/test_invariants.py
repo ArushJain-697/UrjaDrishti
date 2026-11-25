@@ -135,3 +135,34 @@ def test_api_hides_test_year_until_scored(monkeypatch):
     days = c.get("/api/days").json()
     assert all(d["split"] == "val" for d in days)
     assert c.get("/api/day/2026-01-10").status_code == 404
+
+
+# ---- v3: no forecast run published after the filing deadline is ever used ------------------
+@settings(max_examples=200)
+@given(st.integers(0, 900), st.sampled_from([s.plant_id for s in C.SITES + C.ELIA_SITES]))
+def test_filed_lead_never_uses_a_run_published_after_the_deadline(day_offset, sid):
+    from urja.data.lead import filing_deadline_utc, run_day_needed
+    site = C.SITE_BY_ID[sid]
+    idx = pd.date_range(pd.Timestamp(C.PERIOD_START, tz="UTC") + pd.Timedelta(days=day_offset), periods=24, freq="h").tz_convert(site.tz)
+    n = run_day_needed(idx, site)
+    assert set(np.unique(n)) <= {1, 2}
+    init = (idx.tz_convert("UTC") - pd.to_timedelta(n, unit="D")).floor(f"{C.RUN_EVERY_H}h")
+    published = init + pd.Timedelta(hours=C.PUBLISH_LATENCY_H)
+    assert (published <= filing_deadline_utc(idx, site)).all()
+
+
+def test_karnataka_hours_after_0530_need_the_day2_run():
+    from urja.data.lead import run_day_needed
+    site = C.SITE_BY_ID["PVG_S1"]
+    idx = pd.date_range("2025-06-10 00:30", periods=24, freq="h", tz=site.tz)   # true IST hour-ends
+    n = dict(zip(idx.hour, run_day_needed(idx, site)))
+    assert all(n[h] == 1 for h in range(0, 5)) and all(n[h] == 2 for h in range(6, 24))
+
+
+@pytest.mark.skipif(not HAVE_DATA, reason="run python -m urja.data.fetch first")
+def test_karnataka_rows_sit_on_true_utc_hours():
+    """Regression for BUILD_LOG #13: rows must be whole UTC hours (IST :30), not IST whole hours."""
+    from urja.data.fetch import fetch_truth
+    t = fetch_truth(C.SITES[0]).index
+    assert (t.tz_convert("UTC").minute == 0).all()
+    assert (t.minute == 30).all()
