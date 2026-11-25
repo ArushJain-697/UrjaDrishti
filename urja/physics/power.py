@@ -18,7 +18,7 @@ from urja import config as C
 
 def solar_geometry(index: pd.DatetimeIndex, site: C.Site) -> pd.DataFrame:
     mid = index - pd.Timedelta(minutes=30)
-    loc = pvlib.location.Location(site.lat, site.lon, tz=C.TZ)
+    loc = pvlib.location.Location(site.lat, site.lon, tz=site.tz)
     sp = loc.get_solarposition(mid)
     cs = loc.get_clearsky(mid, model="ineichen")
     out = pd.DataFrame({
@@ -39,7 +39,7 @@ def pv_power_mw(ghi: pd.Series, temp_c: pd.Series, site: C.Site, geom: pd.DataFr
     dni = pd.Series(np.nan_to_num(np.asarray(erbs["dni"], float)), index=ghi.index)
     dhi = pd.Series(np.nan_to_num(np.asarray(erbs["dhi"], float)), index=ghi.index)
     poa = pvlib.irradiance.get_total_irradiance(
-        surface_tilt=C.PV_TILT_DEG, surface_azimuth=180.0,
+        surface_tilt=site.tilt, surface_azimuth=180.0,
         solar_zenith=zen, solar_azimuth=geom["azimuth"],
         dni=dni, ghi=ghi, dhi=dhi, model="isotropic",
     )["poa_global"].fillna(0).clip(lower=0)

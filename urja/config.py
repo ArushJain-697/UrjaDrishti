@@ -21,6 +21,12 @@ class Site:
     lat: float
     lon: float
     ac_mw: float = 100.0
+    tz: str = "Asia/Kolkata"          # timezone the hourly data is indexed in
+    filing_tz: str = "Asia/Kolkata"   # where the schedule deadline is defined
+    filing_hour: int = 10             # schedule filed by this local hour on the day before
+    tilt: float = 14.0                # PV tilt (deg), ~latitude
+    truth: str = "physics"            # "physics" (ERA5 -> physics) or "elia" (measured)
+    elia_series: str = ""             # Elia dataset/region key when truth == "elia"
 
 
 SITES = (
@@ -41,6 +47,18 @@ HELDOUT_SITES = (
     Site("DVG_W1", "Davanagere (Harapanahalli) wind", "wind", 14.80, 75.99),
 )
 SITE_BY_ID.update({s.plant_id: s for s in HELDOUT_SITES})
+# Measured-output check: Belgian series with Elia's metered/estimated output and Elia's own
+# day-ahead P10/P50/P90 (issued 11:00 Brussels the day before) as the professional baseline.
+# Weather is taken at one representative point per series (an approximation for a region).
+ELIA_SITES = (
+    Site("BE_LIM_S", "Limburg province solar (Elia)", "solar", 50.95, 5.35, tz="UTC",
+         filing_tz="Europe/Brussels", filing_hour=11, tilt=35.0, truth="elia", elia_series="ods032:Limburg"),
+    Site("BE_OFF_W", "Belgian offshore wind (Elia)", "wind", 51.60, 2.90, tz="UTC",
+         filing_tz="Europe/Brussels", filing_hour=11, truth="elia", elia_series="ods031:Federal"),
+)
+SITE_BY_ID.update({s.plant_id: s for s in ELIA_SITES})
+ELIA_TEST_START = "2025-11-01"
+
 # v3 SEALED temporal held-out: everything from this date on. Not fetched until it is scored.
 V3_TEMPORAL_SEAL_START = "2026-11-01"
 
@@ -49,8 +67,12 @@ NWP_MODELS = ("ecmwf_ifs025", "gfs_global", "icon_global")
 NWP_VARS = ("shortwave_radiation", "temperature_2m", "wind_speed_100m", "cloud_cover")
 TRUTH_VARS = ("shortwave_radiation", "temperature_2m", "wind_speed_100m", "cloud_cover")
 
-# Day-ahead lead: the value each model forecast for hour t, from the run ~24 h earlier.
+# Day-ahead lead. v2 used "day1" for every hour (the run ~24 h before the hour). v3 uses "filed":
+# for each hour, the newest run that was initialised AND published before the filing deadline.
 LEAD_SUFFIX = "_previous_day1"
+LEAD_MODE = __import__("os").environ.get("URJA_LEAD", "filed")   # "day1" reproduces v2
+RUN_EVERY_H = 6                   # global models initialise at 00/06/12/18 UTC
+PUBLISH_LATENCY_H = 6             # a run becomes usable ~6 h after initialisation (conservative)
 
 # ECMWF IFS 0.25 deg previous-run archive starts in spring 2024.
 PERIOD_START = "2024-04-01"
