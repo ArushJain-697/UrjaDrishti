@@ -1,0 +1,63 @@
+{
+  "cpu": {
+    "machine": "arm64",
+    "system": "Darwin",
+    "processor": "arm",
+    "cpu": "Apple M4",
+    "arm_features": {
+      "FEAT_DotProd": true,
+      "FEAT_I8MM": true,
+      "FEAT_BF16": true
+    },
+    "threads": 10
+  },
+  "threads_used": 1,
+  "kinds": {
+    "solar": {
+      "lightgbm": {
+        "crps": 0.04691656389453636,
+        "nmae": 0.06026954378026982,
+        "ms_per_plant_day": 7.489575000945479
+      },
+      "onnxruntime": "1.32.0",
+      "mlp_fp32": {
+        "crps": 0.05231730308576532,
+        "nmae": 0.06633066315148663,
+        "size_kb": 30.1875,
+        "ms_per_plant_day": 0.020866874838247895,
+        "ms_per_10k_rows": 2.5471083499724045
+      },
+      "mlp_int8": {
+        "crps": 0.051678245719935664,
+        "nmae": 0.06551596891486872,
+        "size_kb": 13.646484375,
+        "ms_per_plant_day": 0.025747710024006665,
+        "ms_per_10k_rows": 3.8795062515418977
+      },
+      "int8_crps_change": -0.012215028836292108
+    },
+    "wind": {
+      "lightgbm": {
+        "crps": 0.044240837902988564,
+        "nmae": 0.05615129238409143,
+        "ms_per_plant_day": 7.022270000306889
+      },
+      "onnxruntime": "1.32.0",
+      "mlp_fp32": {
+        "crps": 0.04833363128889445,
+        "nmae": 0.06008481990996272,
+        "size_kb": 30.1875,
+        "ms_per_plant_day": 0.020963750139344484,
+        "ms_per_10k_rows": 2.531210400047712
+      },
+      "mlp_int8": {
+        "crps": 0.049739915242717196,
+        "nmae": 0.06185761639404386,
+        "size_kb": 13.646484375,
+        "ms_per_plant_day": 0.025941875064745545,
+        "ms_per_10k_rows": 3.825810449779965
+      },
+      "int8_crps_change": 0.02909535071795566
+    }
+  }
+}
