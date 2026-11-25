@@ -31,6 +31,19 @@ SITES = (
 )
 SITE_BY_ID = {s.plant_id: s for s in SITES}
 
+# v3 SEALED spatial held-out: sites no model or design choice has seen. Scored once by
+# `python -m urja.eval.v3 --final`. They are >= 0.6 deg from every training site, but they share
+# the same years and weather regimes, so this tests transfer across places, not across time.
+HELDOUT_SITES = (
+    Site("RCR_S1", "Raichur solar block", "solar", 16.20, 77.36),
+    Site("KLB_S1", "Kalaburagi solar block", "solar", 17.33, 76.83),
+    Site("BGK_W1", "Bagalkot (Bilagi) wind", "wind", 16.35, 75.62),
+    Site("DVG_W1", "Davanagere (Harapanahalli) wind", "wind", 14.80, 75.99),
+)
+SITE_BY_ID.update({s.plant_id: s for s in HELDOUT_SITES})
+# v3 SEALED temporal held-out: everything from this date on. Not fetched until it is scored.
+V3_TEMPORAL_SEAL_START = "2026-11-01"
+
 # Three independent global NWP models. Their disagreement is a signal, not noise.
 NWP_MODELS = ("ecmwf_ifs025", "gfs_global", "icon_global")
 NWP_VARS = ("shortwave_radiation", "temperature_2m", "wind_speed_100m", "cloud_cover")
