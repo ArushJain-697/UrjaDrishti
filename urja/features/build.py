@@ -29,6 +29,8 @@ def _site_table(site: C.Site) -> pd.DataFrame:
         fc = fetch_forecast(site, m).reindex(idx)
         tag = m.split("_")[0]
         p = to_mw(fc, site, geom) / cap
+        driver = "shortwave_radiation" if site.kind == "solar" else "wind_speed_100m"
+        p[fc[driver].isna().to_numpy()] = np.nan    # a missing forecast is unknown, never "0 MW"
         f[f"phys_{tag}"] = p.to_numpy()
         f[f"ghi_{tag}"] = fc["shortwave_radiation"].to_numpy()
         f[f"ws_{tag}"] = fc["wind_speed_100m"].to_numpy()
@@ -36,9 +38,9 @@ def _site_table(site: C.Site) -> pd.DataFrame:
         f[f"temp_{tag}"] = fc["temperature_2m"].to_numpy()
         phys.append(p.to_numpy())
     P = np.vstack(phys)
-    f["phys_mean"] = P.mean(0)
-    f["phys_std"] = P.std(0)                       # model disagreement, in capacity units
-    f["phys_range"] = P.max(0) - P.min(0)
+    f["phys_mean"] = np.nanmean(P, 0)              # a missing model hour (rare, ICON) is skipped
+    f["phys_std"] = np.nanstd(P, 0)                # model disagreement, in capacity units
+    f["phys_range"] = np.nanmax(P, 0) - np.nanmin(P, 0)
     ghi_cols = [c for c in f if c.startswith("ghi_")]
     ws_cols = [c for c in f if c.startswith("ws_")]
     f["ghi_mean"] = f[ghi_cols].mean(1)
