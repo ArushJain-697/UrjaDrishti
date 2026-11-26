@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the edge benchmark on a Raspberry Pi 5 (Cortex-A76) and save results/edge_<cpu>.json.
+# Run the edge benchmark on a Raspberry Pi 5 and save results/edge_<cpu>.json.
 # Copy the repo (with data/raw/ already fetched, so the Pi can stay offline), then:
 #   bash scripts/bench_pi.sh
 set -euo pipefail

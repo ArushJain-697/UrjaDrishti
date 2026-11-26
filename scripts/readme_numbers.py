@@ -43,8 +43,8 @@ def edge_table() -> list[str]:
     out = []
     for f in sorted(R.glob("edge_*.json")):
         e = json.loads(f.read_text())
-        feats = ", ".join(k for k, v in e["cpu"].get("arm_features", {}).items() if v)
-        out += [f"**Edge benchmark: {e['cpu'].get('cpu') or e['cpu']['machine']}** ({e['cpu']['machine']}; Arm features: {feats or 'n/a'}; 1 thread)", "",
+        feats = ", ".join(k for k, v in e["cpu"].get("cpu_features", {}).items() if v)
+        out += [f"**Edge benchmark: {e['cpu'].get('cpu') or e['cpu']['machine']}** (CPU features: {feats or 'n/a'}; 1 thread)", "",
                 "| | Model | Size | Latency per plant-day (24 h) | 10k rows | CRPS (val) |", "|---|---|---|---|---|---|"]
         for kind, k in e["kinds"].items():
             out.append(f"| {kind} | LightGBM, 9 quantiles (Python API) | – | {k['lightgbm']['ms_per_plant_day']:.2f} ms | – | {k['lightgbm']['crps']:.4f} |")

@@ -2,9 +2,8 @@
   "cpu": {
     "machine": "arm64",
     "system": "Darwin",
-    "processor": "arm",
     "cpu": "Apple M4",
-    "arm_features": {
+    "cpu_features": {
       "FEAT_DotProd": true,
       "FEAT_I8MM": true,
       "FEAT_BF16": true

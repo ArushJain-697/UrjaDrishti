@@ -1,12 +1,12 @@
-"""Edge benchmark: can tomorrow's forecast for a plant be produced on a small Arm board?
+"""Edge benchmark: can tomorrow's forecast for a plant be produced on a small single-board computer?
 
     python -m urja.edge.bench          # writes results/edge_<machine>.json
 
 Measures, on the CPU it runs on:
   * accuracy (val split) of LightGBM vs the quantile MLP in fp32 ONNX vs int8 ONNX
   * file size, and latency for one plant-day (24 rows) and a 10k-row batch
-  * the Arm CPU features the int8 kernels can use (dot-product / i8mm)
-Run the same command on a Raspberry Pi 5 (scripts/bench_pi.sh) to get Cortex-A76 numbers.
+  * the CPU features the int8 kernels can use (dot-product / i8mm)
+Run the same command on a Raspberry Pi 5 (scripts/bench_pi.sh) to get its numbers.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from urja.models.common import LEVELS, gate
 
 
 def cpu_info() -> dict:
-    info = {"machine": platform.machine(), "system": platform.system(), "processor": platform.processor()}
+    info = {"machine": platform.machine(), "system": platform.system()}
     if platform.system() == "Darwin":
         def sysctl(k):
             try:
@@ -35,13 +35,13 @@ def cpu_info() -> dict:
             except Exception:
                 return None
         info["cpu"] = sysctl("machdep.cpu.brand_string")
-        info["arm_features"] = {f: sysctl(f"hw.optional.arm.{f}") == "1" for f in ("FEAT_DotProd", "FEAT_I8MM", "FEAT_BF16")}
+        info["cpu_features"] = {f: sysctl(f"hw.optional.arm.{f}") == "1" for f in ("FEAT_DotProd", "FEAT_I8MM", "FEAT_BF16")}
     elif os.path.exists("/proc/cpuinfo"):
         txt = open("/proc/cpuinfo").read()
         flags = next((l.split(":", 1)[1].split() for l in txt.splitlines() if l.startswith("Features")), [])
         model = next((l.split(":", 1)[1].strip() for l in txt.splitlines() if l.startswith("Model")), None)
         info["cpu"] = model
-        info["arm_features"] = {f: f in flags for f in ("asimddp", "i8mm", "bf16", "sve")}
+        info["cpu_features"] = {f: f in flags for f in ("asimddp", "i8mm", "bf16", "sve")}
     info["threads"] = os.cpu_count()
     return info
 

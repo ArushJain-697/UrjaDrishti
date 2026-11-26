@@ -38,7 +38,7 @@ RED hours go to a person.
 5. How unsure are we, and is that honest? `uncertainty/` (tiers) + per-tier conformal
 6. What do we file, and who checks? `decision/` (P50; RED → review)
 7. Did it work, on data nobody tuned on? `eval/` (validation + sealed test year)
-8. Can it run next to the plant? `edge/` (ONNX fp32/int8 on Arm)
+8. Can it run next to the plant? `edge/` (ONNX fp32/int8 on a small CPU)
 
 ## 6. Degradation ladder
 - One weather model missing for an hour → ensemble uses the others (`nanmean`); never "0 MW".
@@ -68,7 +68,7 @@ global calibration, no disagreement features, one weather model, no physics prio
 | "Is the generation real?" | No: simulated with physics from reanalysis because SCADA isn't public. The forecasts and their errors are real |
 | "Does it beat the weather models?" | Wind clearly. Solar point forecast does not beat averaging the three models; the band and tiers are the value |
 | "What did you try that failed?" | int8 made the edge model slower; a clear-sky ceiling gate was wrong 20% of the time; validation said three weather models didn't help, the test year said they did |
-| "Why Arm / edge?" | A plant-side box can forecast with no cloud dependency: the 30 KB model runs a plant-day in microseconds on one Arm core |
+| "Why run it at the edge?" | A plant-side box can forecast with no cloud dependency: the 30 KB model runs a plant-day in microseconds on one CPU core |
 
 ## 10. Considered and rejected
 - Synthetic Gaussian-copula data (v1): it can't tell you anything about real forecast error.

@@ -37,7 +37,7 @@ export default function App() {
             and send the unsure hours to a person before the schedule is filed.</p>
         </div>
         <div className="badges">
-          <span>real ERA5 truth</span><span>real ECMWF · GFS · ICON day-ahead runs</span><span>runs on Arm CPU</span>
+          <span>real ERA5 truth</span><span>real ECMWF · GFS · ICON day-ahead runs</span><span>runs offline on a small CPU</span>
         </div>
       </header>
 

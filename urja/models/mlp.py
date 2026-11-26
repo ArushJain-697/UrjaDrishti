@@ -1,7 +1,7 @@
 """L3b: a small quantile MLP, the edge-deployable twin of the LightGBM model.
 
 Why it exists: trees are fast on any CPU, but a neural net can be exported to ONNX/ExecuTorch,
-quantised to int8 and run on Arm NEON / dot-product kernels on a substation-side device.
+quantised to int8 and run on SIMD / dot-product kernels on a substation-side device.
 Same features, same 9 quantile levels, same conformal + physics gate afterwards.
 """
 from __future__ import annotations
@@ -15,6 +15,8 @@ from urja import config as C
 from urja.models.common import LEVELS
 
 
+# Standard deviations are floored at 1e-2: a constant feature (e.g. the wind "ceiling") has std ~0,
+# and 1e-6 underflows to 0 in fp16, turning the normalisation into a divide-by-zero (BUILD_LOG #17).
 class QuantileMLP(nn.Module):
     def __init__(self, n_in: int, hidden: int = 64, n_q: int = len(LEVELS)):
         super().__init__()
@@ -43,7 +45,7 @@ def train(df: pd.DataFrame, kind: str, cols: list[str], epochs: int = 60) -> Qua
     X, y = _xy(tr, cols)
     m = QuantileMLP(X.shape[1])
     m.mu.data = torch.tensor(X.mean(0))
-    m.sd.data = torch.tensor(X.std(0) + 1e-6)
+    m.sd.data = torch.tensor(np.maximum(X.std(0), 1e-2))
     lv = torch.tensor(LEVELS, dtype=torch.float32)[None, :]
     opt = torch.optim.AdamW(m.parameters(), lr=2e-3, weight_decay=1e-4)
     Xt, yt = torch.tensor(X), torch.tensor(y)[:, None]
