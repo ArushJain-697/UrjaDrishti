@@ -34,7 +34,7 @@ UrjaDrishti forecasts the whole distribution instead. For every plant and every 
 Every number in this README comes from a script and a JSON file in [`results/`](results/). The held-out tests were
 written down and committed before the code they test ([`docs/V3_SEAL.md`](docs/V3_SEAL.md)), and each was
 scored once. We kept the results that went against us. On measured output from the Belgian grid, the grid operator's
-own forecast beats ours by 16–20%, and that is in the table below.
+own forecast has about 16% lower error than ours, and that is in the table below.
 
 ## Features
 
@@ -57,6 +57,57 @@ own forecast beats ours by 16–20%, and that is in the table below.
 > (error up about 5–8% on development data). [Why →](docs/BUILD_LOG.md)
 
 ---
+---
+
+## Why it works (the method, in one breath)
+
+UrjaDrishti stacks seven ideas that each have a measured payoff, and skips the usual shortcut of trusting one
+weather forecast as if it were certain:
+
+1. **Physics first, learning second.** The same physics turns both the truth and the forecasts into megawatts, so
+   the learned model only has to correct forecast error. On four sites it never saw, it beats the best no-ML
+   baseline at every one, by 6–9%. [Layer 1 →](#layer-1-weather-to-megawatts)
+2. **Only what existed at the deadline.** Every input is a forecast published by 10:00 the day before, enforced by a
+   test. Being honest about timing costs accuracy, and we report it: solar error 4.96% → 5.36%, wind 4.37% → 4.57%.
+   [Layer 2 →](#layer-2-only-what-existed-at-the-deadline)
+3. **Three weather models, none trusted alone.** Their disagreement is a signal for the tiers, and the forecast is
+   pulled toward a no-ML anchor by a weight chosen out-of-fold, after two simpler ways of choosing it failed.
+   [Layer 3 →](#layer-3-the-quantile-model)
+4. **A band that is honest where it matters.** Calibrated once for all hours, an 80% band is too narrow on exactly
+   the risky hours (the Flat-Band Trap). Calibrated per tier, RED-hour coverage rises by 9–12 points, and on unseen
+   sites the band covers 79–80% of hours. RED hours are 19–33% of hours but hold 67–76% of the out-of-band energy.
+   [Layer 4 →](#layer-4-tiers-and-per-tier-calibration)
+5. **The model never files the schedule.** The schedule is a fixed rule (P50), and RED hours go to a person.
+   [Layer 5 →](#layer-5-the-schedule)
+6. **Checked against reality twice.** Against a second, independent truth (NASA POWER satellite irradiance: the
+   model still beats the weather-model average by 3–10%), and against measured output from the Belgian grid, with
+   the grid operator's own forecast as the opponent. The second truth also exposed a 30-minute timestamp bug before
+   anything was scored. [Benchmarks →](#benchmarks)
+7. **Small enough to run next to the plant.** Compiled to native code, the trees answer a plant-day 74× (solar) and
+   77× (wind) faster with the same accuracy; a 30 KB distilled network matches its teacher on solar (CRPS 0.0506 vs
+   0.0514). Measured on an Apple M4; the Raspberry Pi 5 benchmark has not been run yet.
+   [CPU benchmarks →](#cpu-benchmarks-and-optimisation)
+
+<details>
+<summary><b>Prior work and citations</b> (click)</summary>
+
+- Correcting weather-model output with regression is Model Output Statistics (Glahn & Lowry, 1972). Our linear MOS
+  baseline is exactly that, and it is the baseline to beat.
+- Calibrated probabilistic forecasts from weather ensembles are standard in meteorology (EMOS, Gneiting et al., 2005).
+  UrjaDrishti works from only three deterministic models, so it learns the spread instead.
+- The band calibration is conformalized quantile regression (Romano, Patterson & Candès, 2019), applied per group:
+  Mondrian conformal prediction (Vovk, Gammerman & Shafer, 2005), with the groups matched to the operator's decision.
+- The small network is trained by knowledge distillation (Hinton, Vinyals & Dean, 2015) from out-of-fold teacher
+  predictions.
+- Physics: pvlib (Holmgren, Hansen & Mikofski, 2018). Truth: ERA5 reanalysis (Hersbach et al., 2020) and NASA POWER.
+- Deviation settlement: CERC (Deviation Settlement Mechanism and Related Matters) Regulations, 2024.
+
+</details>
+
+**The strongest opponent, stated honestly.** On measured Belgian output, the grid operator's own day-ahead forecast
+has about 16% lower error than ours on both series. It uses far more information than three free global weather
+models at a single grid point. Ours still beats the linear MOS baseline on both.
+
 
 ## The problem
 
@@ -67,25 +118,6 @@ own forecast beats ours by 16–20%, and that is in the table below.
 | A band that means what it says | P10–P90 bands calibrated per tier; on unseen sites they cover 79–80% of hours against an 80% target |
 | No cloud dependency at the plant | A model small and fast enough for a substation box (benchmarks below) |
 | Numbers that hold up | Held-out sites and a measured-output check, both sealed before the code and scored once |
-
----
-
-## What makes it different
-
-1. **The band is honest where it matters.** An 80% band calibrated on all hours at once borrows its coverage from
-   easy hours. It is too wide on calm hours and too narrow on exactly the hours that cost money. We call this the
-   **Flat-Band Trap**. UrjaDrishti decides each hour's tier *before* calibration and calibrates each tier on its own.
-2. **The model never files the schedule.** The schedule is a fixed rule over the calibrated distribution, and RED
-   hours go to a person.
-3. **It is only allowed to know what a scheduler knew.** Every input is a forecast that had been published by the
-   filing deadline. A test scrambles the truth data and checks that no feature changes.
-4. **It is checked against reality twice.** Once against a second, independent truth (satellite irradiance), and
-   once against measured output with the grid operator's own forecast as the opponent.
-
-> **Decision:** the second truth paid for itself before it scored anything. Lining NASA POWER up against ERA5
-> exposed a half-hour offset: asked for India time, the weather API shifts its data by 5 h but labels it +05:30, so
-> every row was 30 minutes early. Everything is now fetched in UTC and converted locally, and a test guards it.
-> [Why →](docs/BUILD_LOG.md)
 
 ---
 
@@ -257,8 +289,8 @@ Measured output from the Belgian grid operator Elia, Nov 2025 – Oct 2026, agai
 > with the lowest error. Here that is either the average of the three weather models or a linear correction of them
 > (MOS), never persistence. At all four unseen sites the model beats it by 6–9%.
 
-> **Decision:** we kept the measured-output result that went against us. The Belgian grid operator's own forecast is
-> 16–20% better than ours on point error. It has far more information than three free global weather models at a
+> **Decision:** we kept the measured-output result that went against us. The Belgian grid operator's own forecast has
+> about 16% lower error than ours on both series. It has far more information than three free global weather models at a
 > single grid point. Ours still beats the linear MOS baseline on both series.
 
 ### CPU benchmarks and optimisation
@@ -341,18 +373,6 @@ Thread scaling (ONNX fp32, batch 10 000): 1 thread 5.0 M rows/s, 2 threads 7.5 M
 > **Decision:** the benchmark caught a numerics bug. Converting the wind network to fp16 silently broke it (CRPS
 > 0.049 → 0.507): a constant input feature had a standard deviation of about 1e-6, and the normalisation overflowed
 > in fp16. Standard deviations are now floored. [Why →](docs/BUILD_LOG.md)
-
----
-
-## Positioning against prior work
-
-- Correcting weather-model output with statistics is decades old: Model Output Statistics (Glahn & Lowry, 1972). Our
-  linear MOS baseline is exactly that, and it is the baseline we have to beat.
-- Calibrated probabilistic forecasts from weather ensembles are standard in meteorology (e.g. EMOS, Gneiting et al.,
-  2005). UrjaDrishti works from only three deterministic models, so it learns the spread instead.
-- The band calibration is conformalized quantile regression (Romano, Patterson & Candès, 2019), applied per group
-  (Mondrian conformal prediction, Vovk et al., 2005), with the groups chosen to match the operator's decision.
-- Professional forecasters have far more data than we do. That is why we test against one: the Belgian grid operator.
 
 ---
 
