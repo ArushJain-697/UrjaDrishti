@@ -1,10 +1,9 @@
-"""Fit the forecasters on the train split, calibrate on calib, and write replay predictions.
+"""Fit the forecasters on the train split, calibrate on calib, and write the hourly schedules.
 
     python -m urja.train
 
-Writes artifacts/forecaster_<kind>.joblib and artifacts/replay.parquet (every hour of every
-split, with P10/P50/P90, tier and the deterministic schedule). The API only exposes test-year
-days after results/metrics_test.json exists, so the dashboard cannot leak the sealed year.
+Writes artifacts/forecaster_<kind>.joblib and artifacts/schedules.parquet (every hour of every
+split, with P10/P50/P90, tier and the fixed-rule schedule).
 """
 from __future__ import annotations
 
@@ -41,7 +40,7 @@ def main() -> None:
             parts.append(part)
     rep = pd.concat(parts).sort_values(["plant_id", "time"])
     rep["actual_mw"] = rep["actual_mw"].round(2)
-    rep.to_parquet(C.ART_DIR / "replay.parquet")
+    rep.to_parquet(C.ART_DIR / "schedules.parquet")
     print("rows", len(rep), "| RED share", np.round(rep["review_required"].mean(), 3))
 
 

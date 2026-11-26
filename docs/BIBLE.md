@@ -50,18 +50,7 @@ Headline: energy outside the ±10% band vs the best operator-usable baseline; ti
 the 3-member NWP ensemble. Baselines: persistence, climatology, each NWP, NWP mean, linear MOS. Ablations:
 global calibration, no disagreement features, one weather model, no physics prior.
 
-## 8. Three-minute demo
-| Time | Beat |
-|---|---|
-| 0:00–0:15 | Hook: "Tomorrow's schedule is filed tonight. One fifth of the hours carry three quarters of the deviation risk. Which fifth?" |
-| 0:15–0:40 | Trap: Flat-Band toggle on "one band for all hours": RED coverage bar stops short of the 80% line |
-| 0:40–1:30 | Replay desk, hardest day: three weather models fan apart, tier strip turns RED, the band widens, actual dots land inside it |
-| 1:30–1:50 | Toggle to "calibrated per tier": every tier reaches the line |
-| 1:50–2:20 | Judge picks any date from the dropdown; the schedule and review hours are a fixed rule they can check by eye |
-| 2:20–2:45 | Proof card: test year, scored once; say the solar caveat *before* the wind number |
-| 2:45–3:00 | Close: "The model estimates, it never files." + simulated-plant caveat |
-
-## 9. Challenges
+## 8. Challenges
 | Challenge | Answer |
 |---|---|
 | "Isn't this just quantile regression?" | Yes, plus the part people skip: coverage per tier, earned on held-out weeks, checked on a sealed year |
@@ -70,17 +59,17 @@ global calibration, no disagreement features, one weather model, no physics prio
 | "What did you try that failed?" | int8 made the edge model slower; a clear-sky ceiling gate was wrong 20% of the time; validation said three weather models didn't help, the test year said they did |
 | "Why run it at the edge?" | A plant-side box can forecast with no cloud dependency: the 30 KB model runs a plant-day in microseconds on one CPU core |
 
-## 10. Considered and rejected
+## 9. Considered and rejected
 - Synthetic Gaussian-copula data (v1): it can't tell you anything about real forecast error.
 - Clear-sky ceiling as a hard gate (wrong 20% of the time, see BUILD_LOG #4).
 - Tuning hyper-parameters on calib/val (would spend the calibration data twice).
 - Twilio/SendGrid alerts, hardware diagnostics, a "war room" (v1 features that scored nothing and weren't real).
 
-## 11. What this is NOT
+## 10. What this is NOT
 Not a live system, not trained on real plant output, not a bidding optimiser, not a rupee estimate, not a
 replacement for the SLDC's own forecasting.
 
-## 12. Status
+## 11. Status
 | Proven on the sealed year | Built, not field-tested | Pitch-only |
 |---|---|---|
-| Tier coverage; wind accuracy gain; out-of-band energy reduction | ONNX MLP on Pi 5; dashboard | Real SCADA, real lead times, live weather feed |
+| Tier coverage; wind accuracy gain; out-of-band energy reduction | ONNX MLP on Pi 5 | Real SCADA, real lead times, live weather feed |

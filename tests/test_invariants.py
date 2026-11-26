@@ -124,19 +124,6 @@ def test_site_constants_only_in_config():
         assert not any(p.search(txt) for p in pats), f"site coordinates hard-coded in {f}"
 
 
-# ---- The dashboard cannot show the sealed test year before it is scored --------------------
-@pytest.mark.skipif(not (C.ART_DIR / "replay.parquet").exists(), reason="run python -m urja.train first")
-def test_api_hides_test_year_until_scored(monkeypatch):
-    from fastapi.testclient import TestClient
-
-    from urja.api import app as A
-    monkeypatch.setattr(A, "_test_unsealed", lambda: False)
-    c = TestClient(A.app)
-    days = c.get("/api/days").json()
-    assert all(d["split"] == "val" for d in days)
-    assert c.get("/api/day/2026-01-10").status_code == 404
-
-
 # ---- v3: no forecast run published after the filing deadline is ever used ------------------
 @settings(max_examples=200)
 @given(st.integers(0, 900), st.sampled_from([s.plant_id for s in C.SITES + C.ELIA_SITES]))

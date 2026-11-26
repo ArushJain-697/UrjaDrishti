@@ -20,4 +20,3 @@ What every component really is, so nobody has to ask.
 | v2 test year | Scored once (`results/metrics_test.json`, commit `181baa7`); now development data for v3 | – | "Superseded by v3" |
 | v3 sealed slices | Unseen sites + Elia test year, scored once (`results/v3_sealed.json`, commit `d6649a5`); Nov 2026+ still sealed | Unseen sites share years with training sites | "Transfer across places, not yet across time" |
 | Edge numbers | Measured on an Apple M4 laptop (1 thread) | Not a Raspberry Pi | "Pi 5 numbers pending `scripts/bench_pi.sh`" |
-| Dashboard | Replays stored predictions; no live weather pull | Not real-time | "A replay desk" |

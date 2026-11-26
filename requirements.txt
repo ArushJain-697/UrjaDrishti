@@ -15,8 +15,6 @@ llvmlite<0.45          # lleaves needs PassManagerBuilder (removed in llvmlite 0
 treelite>=4.8
 tl2cgen>=1.0
 onnxconverter-common>=1.14
-fastapi>=0.110
-uvicorn>=0.29
 pydantic>=2.6
 pytest>=8
 hypothesis>=6

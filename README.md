@@ -43,7 +43,6 @@ once. Results that went against us stay in.
 | Two independent truths | Solar is scored against ERA5 reanalysis and against NASA POWER satellite irradiance |
 | Measured-output check | The same method on Belgian grid data, against measured output and the operator's own forecast |
 | Small and fast | Trees compiled to native code (~75× faster) and a 30 KB distilled neural net, benchmarked on a CPU |
-| Replay desk | A dashboard of every development day, hardest first, with the tier strip under the hours |
 
 ## Why it works (the method, in one breath)
 
@@ -126,7 +125,6 @@ The code follows the same order: `urja/data → physics → features → models 
 | Physics | pvlib (Ineichen clear sky, Erbs decomposition, SAPM cell temperature, PVWatts), IEC class-II power curve |
 | Models | LightGBM quantile regression, ridge MOS, conformalized quantile regression (Mondrian) |
 | Edge models | PyTorch quantile MLP, ONNX Runtime (fp32 / fp16 / int8), ExecuTorch + XNNPACK, treelite and lleaves compilation |
-| Serving | FastAPI (read-only), React + Vite dashboard |
 | Testing | pytest, Hypothesis property tests |
 
 ## The layers
@@ -328,16 +326,6 @@ The benchmark also caught a numerics bug. Converting the wind network to fp16 si
 a constant input feature had a standard deviation of about 1e-6, and the normalisation overflowed in fp16. Standard
 deviations are now floored ([build log](docs/BUILD_LOG.md)).
 
-## The dashboard
-
-The replay desk shows every development day, hardest first. For a chosen plant and day you see the calibrated band,
-the filed schedule, the ±10% free band, the three raw weather-model forecasts and what actually happened, with a
-GREEN / AMBER / RED strip under the hours.
-
-```bash
-.venv/bin/uvicorn urja.api.app:app --port 8000     # then open http://localhost:8000
-```
-
 ## Project structure
 
 ```
@@ -349,8 +337,6 @@ urja/uncertainty/   GREEN / AMBER / RED tiers
 urja/decision/      the fixed-rule schedule
 urja/eval/          evaluation, including the sealed one-shot scoring
 urja/edge/, bench/  CPU benchmarks: compilation, distillation, pruning, quantisation, ExecuTorch
-urja/api/           read-only FastAPI for the dashboard
-web/                React dashboard
 scripts/            reproduce.sh, README number generators, Raspberry Pi benchmark
 results/            the JSON behind every number in this README
 docs/               design decisions, honesty inventory, build log, benchmark plan, the seal
@@ -361,7 +347,7 @@ tests/              pytest and Hypothesis tests
 
 ```bash
 git clone https://github.com/ArushJain-697/UrjaDrishti.git && cd UrjaDrishti
-bash scripts/reproduce.sh        # venv, fetch (~2 min, public APIs, no keys), train, evaluate, test, build the dashboard
+bash scripts/reproduce.sh        # venv, fetch (~2 min, public APIs, no keys), train, evaluate, test
 ```
 
 After the first fetch, everything runs offline from `data/raw/`.
@@ -377,7 +363,7 @@ LightGBM and PyTorch run in separate processes, because on macOS their OpenMP ru
 ## Testing
 
 ```bash
-python -m pytest -q               # 12 tests, including property tests with generated cases
+python -m pytest -q               # 11 tests, including property tests with generated cases
 ```
 
 | Test | What it checks |
@@ -388,7 +374,6 @@ python -m pytest -q               # 12 tests, including property tests with gene
 | `test_gate_never_emits_impossible_power` | Quantiles never cross or leave [0, capacity], and solar is 0 at night (300 generated cases) |
 | `test_tier_is_monotone_in_uncertainty` | More uncertainty never makes an hour look safer (500 generated cases) |
 | `test_splits_are_time_ordered_and_sealed` | Training, calibration and test periods are in time order and don't overlap |
-| `test_api_hides_test_year_until_scored` | The dashboard can't show the sealed period before it's scored |
 
 ## Glossary
 

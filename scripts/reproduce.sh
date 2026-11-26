@@ -11,5 +11,4 @@ $PY -m urja.eval.run            # validation split
 $PY -m urja.edge.bench
 $PY -m pytest -q
 $PY scripts/readme_numbers.py
-(cd web && npm install --silent && npx vite build)
-echo "Done. Serve with: $PY -m uvicorn urja.api.app:app --port 8000  ->  http://localhost:8000"
+echo "Done. Hourly schedules are in artifacts/schedules.parquet; results are in results/."
