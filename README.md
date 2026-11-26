@@ -26,9 +26,9 @@ UrjaDrishti forecasts the whole range instead. For every plant and every hour of
 5. marks each hour GREEN, AMBER or RED and files the median as the schedule. RED hours go to a dispatcher, and no
    model decides what gets filed.
 
-Every number here is produced by a script and saved as JSON in [`results/`](results/). The held-out tests were
-committed before the code they test ([`docs/V3_SEAL.md`](docs/V3_SEAL.md)) and each was scored once. Results that
-went against us stay in.
+Every number here is produced by a script and saved as JSON in [`results/`](results/). The held-out sites and periods were
+chosen and committed before the model changes they test ([`docs/V3_SEAL.md`](docs/V3_SEAL.md)), and each was scored
+once. Results that went against us stay in.
 
 ## What it does
 
@@ -43,7 +43,7 @@ went against us stay in.
 | Two independent truths | Solar is scored against ERA5 reanalysis and against NASA POWER satellite irradiance |
 | Measured-output check | The same method on Belgian grid data, against measured output and the operator's own forecast |
 | Small and fast | Trees compiled to native code (~75× faster) and a 30 KB distilled neural net, benchmarked on a CPU |
-| Replay desk | A dashboard of every development day, hardest first, with the tier strip and a Flat-Band toggle |
+| Replay desk | A dashboard of every development day, hardest first, with the tier strip under the hours |
 
 ## Why it works (the method, in one breath)
 
@@ -68,7 +68,7 @@ Seven choices, each with a measured result behind it:
    beats the average of the weather models by 3–10%. Lining the two truths up also exposed a 30-minute timestamp bug
    before anything was scored. On measured output from the Belgian grid, the grid operator's own forecast is the
    opponent. ([Results](#results))
-7. **Small enough to run next to the plant.** Compiled to native code, the trees produce a plant-day 74× (solar) and
+7. **Small and fast on a laptop CPU.** Compiled to native code, the trees produce a plant-day 74× (solar) and
    77× (wind) faster with the same accuracy. A 30 KB distilled network matches its teacher on solar (CRPS 0.0506 vs
    0.0514). These numbers are from an Apple M4; the Raspberry Pi 5 benchmark hasn't been run yet.
    ([CPU benchmarks](#cpu-benchmarks-and-optimisation))
@@ -78,8 +78,6 @@ Seven choices, each with a measured result behind it:
 
 - Correcting weather-model output with regression is Model Output Statistics (Glahn & Lowry, 1972). Our linear MOS
   baseline is exactly that, and it's the baseline to beat.
-- Meteorology routinely calibrates probabilistic forecasts from weather ensembles (EMOS, Gneiting et al., 2005).
-  UrjaDrishti has only three deterministic models, so it learns the spread instead.
 - The band calibration is conformalized quantile regression (Romano, Patterson & Candès, 2019), done per group as
   Mondrian conformal prediction (Vovk, Gammerman & Shafer, 2005), with the groups matched to the operator's decision.
 - The small network is trained by knowledge distillation (Hinton, Vinyals & Dean, 2015) from out-of-fold teacher
@@ -90,8 +88,8 @@ Seven choices, each with a measured result behind it:
 </details>
 
 **Where it loses.** On measured Belgian output, the grid operator's own day-ahead forecast has about 16% lower error
-than ours on both series. It draws on far more information than three free global weather models at one grid point.
-Ours still beats the linear MOS baseline on both.
+than ours on both series. Ours uses only three free global weather models at a single grid point. It still beats
+the linear MOS baseline on both.
 
 ## How it works
 
@@ -180,8 +178,8 @@ Then, on held-out calibration weeks and for each tier $k$ separately:
 $$E_i = \max(q_{0.1,i} - y_i,\ y_i - q_{0.9,i}), \qquad \hat Q_k = \text{the } \tfrac{\lceil (n_k+1)(1-\alpha) \rceil}{n_k}\text{ quantile of } \{E_i\}_{i \in k}$$
 
 An hour in tier $k$ gets the band $[\,q_{0.1} - \hat Q_k,\ q_{0.9} + \hat Q_k\,]$, clipped to $[0, \text{capacity}]$.
-The tier is set before calibration, from what's known when the forecast is made. If it came from the calibrated band,
-the tiers and the corrections would chase each other.
+The tier is set before calibration, from what's known when the forecast is made. The thresholds were set by hand on
+development data.
 
 ### Layer 5: the schedule
 
@@ -242,8 +240,8 @@ Measured output from the Belgian grid operator Elia, Nov 2025 – Oct 2026, agai
 | How far ERA5 and NASA POWER disagree with each other (nMAE) | 7.3%–7.6% | – |
 <!-- numbers:end -->
 
-The baseline in each row is the strongest one an operator could actually use, picked by code as the one with the
-lowest error: either the average of the three weather models or a linear correction of them (MOS), never persistence.
+The baseline in each row is the best of the no-ML baselines we computed, picked by code as the one with the lowest
+error: the average of the three weather models, each model on its own, or a linear correction of them (MOS).
 
 The tiers are where most of the value is. RED hours are 19–33% of all hours but hold 67–76% of the energy that missed
 the schedule by more than ±10%, and calibrating each tier separately raises coverage in those hours by 9–12 points.
@@ -323,8 +321,8 @@ Thread scaling (ONNX fp32, batches of 10 000): 1 thread 5.0 M rows/s, 2 threads 
 <!-- bench:end -->
 
 The biggest speed-up came from the runtime, not from quantisation. Compiled to native code, the same trees produce a
-plant-day about 75× faster than through LightGBM's Python API, with identical outputs. int8 only pays off once layers
-reach about 1,000 units, so fp32 is the right choice for a 30 KB model.
+plant-day about 75× faster than through LightGBM's Python API, with identical outputs. On this CPU, int8 only pays off
+once layers reach about 1,000 units, so fp32 is the right choice for a 30 KB model.
 
 The benchmark also caught a numerics bug. Converting the wind network to fp16 silently broke it (CRPS 0.049 → 0.507):
 a constant input feature had a standard deviation of about 1e-6, and the normalisation overflowed in fp16. Standard
@@ -334,8 +332,7 @@ deviations are now floored ([build log](docs/BUILD_LOG.md)).
 
 The replay desk shows every development day, hardest first. For a chosen plant and day you see the calibrated band,
 the filed schedule, the ±10% free band, the three raw weather-model forecasts and what actually happened, with a
-GREEN / AMBER / RED strip under the hours. The Flat-Band Trap panel switches between one calibration for all hours and
-per-tier calibration, so you can watch the coverage bars move. The sealed test period stays hidden until it's scored.
+GREEN / AMBER / RED strip under the hours.
 
 ```bash
 .venv/bin/uvicorn urja.api.app:app --port 8000     # then open http://localhost:8000
