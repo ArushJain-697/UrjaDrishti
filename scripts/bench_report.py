@@ -15,9 +15,10 @@ def main():
     t = json.loads((R / "bench_trees.json").read_text())
     n = json.loads((R / "bench_nets.json").read_text())
     cpu = t["cpu"]
-    L = [f"Measured on **{cpu.get('cpu')}** (CPU features: {', '.join(cpu.get('cpu_features', []))}), "
-         "one thread, validation split (Apr–Oct 2025). Latency is p50 over ≥ 200 timed runs after warm-up; "
-         "p99 in brackets. CRPS: lower is better. Plan written before measuring: [`docs/BENCHMARK_PLAN.md`](docs/BENCHMARK_PLAN.md).", ""]
+    L = [f"Measured on an {cpu.get('cpu')} (CPU features: {', '.join(cpu.get('cpu_features', []))}), on one thread, "
+         "over the validation period (Apr–Oct 2025). The Raspberry Pi 5 benchmark hasn't been run yet. Latency is the "
+         "median of at least 200 timed runs after warm-up, with p99 in brackets. Lower CRPS is better. The test list was "
+         "written before measuring: [`docs/BENCHMARK_PLAN.md`](docs/BENCHMARK_PLAN.md).", ""]
     for kind in ("solar", "wind"):
         tk, nk = t["kinds"][kind], n["kinds"][kind]
         base = tk["sweep"]["lgbm_400x31"]
@@ -47,20 +48,20 @@ def main():
         for name, size, lat, crps, note in rows:
             L.append(f"| {name} | {size} | {ms(lat['p50_ms'])} ({ms(lat['p99_ms'])}) | {crps:.4f} | {note} |")
         sp = base["latency_plant_day"]["p50_ms"] / comp["latency_plant_day"]["p50_ms"]
-        L += ["", f"Trees: **{sp:.0f}× faster** per plant-day than the starting point with the same accuracy. "
-              f"Teacher (LightGBM 400×31) CRPS {nk['teacher_val']['crps']:.4f}.", ""]
+        L += ["", f"The compiled trees are {sp:.0f}× faster per plant-day than the starting point, with the same accuracy. "
+              f"The teacher (LightGBM 400×31) scores CRPS {nk['teacher_val']['crps']:.4f}.", ""]
         L += ["| Student MLP | Params | MACs / row | CRPS plain | CRPS distilled |", "|---|---|---|---|---|"]
         for w in (16, 32, 64, 128, 256):
             p, q = nk["students"][f"mlp{w}_plain"], nk["students"][f"mlp{w}_distilled"]
             L.append(f"| {w} hidden units | {p['params']:,} | {p['macs_per_row']:,} | {p['crps']:.4f} | {q['crps']:.4f} |")
         pr = nk["pruning"]
-        L += ["", f"Structured pruning, distilled 128 → 64 units + 15 fine-tune epochs: CRPS "
+        L += ["", f"Pruning a distilled 128-unit network to 64 units, then fine-tuning for 15 epochs, gives CRPS "
               f"{pr['mlp128_distilled_pruned_to_64']['crps']:.4f} vs {pr['mlp64_distilled_from_scratch']['crps']:.4f} for a 64-unit "
-              "model distilled from scratch.", ""]
+              "network distilled from scratch.", ""]
         th = nk["thread_scaling_fp32_10k"]
-        L += [f"Thread scaling (ONNX fp32, batch 10 000): " + ", ".join(f"{k} thread{'s' if k != '1' else ''} {v / 1e6:.1f} M rows/s" for k, v in th.items()), ""]
+        L += [f"Thread scaling (ONNX fp32, batches of 10 000): " + ", ".join(f"{k} thread{'s' if k != '1' else ''} {v / 1e6:.1f} M rows/s" for k, v in th.items()), ""]
     x = n["int8_crossover"]
-    L += ["**Where int8 starts to pay off on this CPU** (ONNX Runtime, batch 1 024, random weights, latency only)", "",
+    L += ["**Where int8 starts to pay off on this CPU** (batches of 1 024, random weights, latency only)", "",
           "| Hidden units | MACs / row | fp32 | int8 dynamic | int8 speed-up |" + (" ExecuTorch fp32 | ExecuTorch int8 |" if "et_xnnpack_int8_ms" in next(iter(x.values())) else ""),
           "|---|---|---|---|---|" + ("---|---|" if "et_xnnpack_int8_ms" in next(iter(x.values())) else "")]
     for w, r in x.items():
