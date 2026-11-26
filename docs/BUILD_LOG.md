@@ -30,3 +30,24 @@ What actually happened, including what broke. Newest last.
     mean; wind beat linear MOS by 15.5%. Per-tier calibration held (RED coverage 68% → 82% solar, 73% → 84%
     wind). The validation ablation said three weather models did not help; the test year said they did for
     solar. Both are reported.
+
+# v3 (Tier 1)
+
+11. **Sealed first.** `docs/V3_SEAL.md` was committed before any v3 code: 4 unseen Karnataka sites, Nov 2026+
+    for later, and the Elia test year (defined before the Elia data was fetched). v2's test year is now dev data.
+12. **Real filing deadline.** Each hour now uses the newest model run initialised and published (+6 h) before
+    10:00 IST on the day before (11:00 Brussels for Elia): the day-1 run for 00:00–05:00 IST, the day-2 run after
+    that. Lead is 24–48 h instead of ~24 h. Cost on dev data: ~8% higher nMAE, 17–30% more out-of-band energy.
+13. **Bug found by the second truth: every Karnataka row was 30 minutes early (v2 included).** Open-Meteo, asked
+    for `Asia/Kolkata`, shifts its UTC series by 5 h and labels it +05:30. Lining NASA POWER up against ERA5
+    exposed a half-hour offset. Truth and forecasts were shifted alike, so v2's comparisons were internally
+    consistent, but solar geometry was 30 min off. Everything is now fetched in UTC and converted locally.
+14. **NASA POWER stamps hour-beginning.** Shifting it +1 h raises its correlation with ERA5 from 0.92 to 0.97.
+15. **Solar P50, three attempts.** (a) Blend toward the raw NWP mean, weight fit on calibration weeks:
+    great for Karnataka, but on Belgium it pulled the forecast toward a fleet-biased physics prior (nMAE
+    4.35% -> 5.50%). (b) Let the calibration weeks also choose between that and a bias-corrected MOS anchor:
+    ~6 weeks at one site picked the wrong anchor for both Belgian series. (c) **Kept:** choose anchor and weight
+    from out-of-fold predictions over the whole training year (month-blocked folds). The calibration weeks
+    go back to conformal calibration only.
+16. **Site lat/lon removed from features** so the model can be applied to sites it never saw. lead_day
+    (1 or 2) added: it is known at filing time.

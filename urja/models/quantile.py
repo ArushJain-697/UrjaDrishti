@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import Ridge
 
 from urja import config as C
 from urja.models.common import LEVELS, gate
@@ -29,24 +30,78 @@ class QuantileForecaster:
     cols: list[str]
     models: dict = field(default_factory=dict)
     mondrian: bool = True        # per-tier conformal (True) or one global correction (ablation)
+    blend: bool = True           # shift the distribution toward a no-ML anchor (anchor + weight fit on data)
+    w_ens: float = 0.0           # 0 = LightGBM median, 1 = the anchor
+    anchor: str = "ens"          # "ens" = raw NWP-ensemble mean, "mos" = ridge on the 3 physics forecasts
+    mos: object = None
     qhat: dict = field(default_factory=dict)   # CQR correction per tier, capacity units
 
     def _rows(self, df: pd.DataFrame) -> pd.DataFrame:
         d = df[df["kind"] == self.kind]
         return d[d["daylight"]] if self.kind == "solar" else d
 
+    @staticmethod
+    def _nwp(d: pd.DataFrame) -> pd.DataFrame:
+        cols = ["phys_ecmwf", "phys_gfs", "phys_icon"]
+        return d[cols].apply(lambda c: c.fillna(d["phys_mean"])).fillna(0)
+
+    def anchor_values(self, d: pd.DataFrame, anchor: str | None = None) -> np.ndarray:
+        if (anchor or self.anchor) == "mos":
+            return np.clip(self.mos.predict(self._nwp(d)), 0, 1)
+        return d["phys_mean"].to_numpy()
+
     def fit(self, df: pd.DataFrame) -> "QuantileForecaster":
         tr = self._rows(df[df["split"] == "train"])
+        self.mos = Ridge(alpha=1.0).fit(self._nwp(tr), tr["y"])
         for a in LEVELS:
             m = lgb.LGBMRegressor(objective="quantile", alpha=a, **PARAMS)
             m.fit(tr[self.cols], tr["y"])
             self.models[a] = m
         return self
 
-    def raw(self, df: pd.DataFrame) -> np.ndarray:
+    def _lgbm(self, df: pd.DataFrame) -> np.ndarray:
         X = df[self.cols]
-        q = np.column_stack([self.models[a].predict(X) for a in LEVELS])
+        return np.column_stack([self.models[a].predict(X) for a in LEVELS])
+
+    def raw(self, df: pd.DataFrame) -> np.ndarray:
+        q = self._lgbm(df)
+        if self.w_ens:
+            # Forecast combination: move the whole distribution so its median sits at
+            # (1 - w) * LightGBM median + w * NWP-ensemble mean. Width is unchanged.
+            anc = self.anchor_values(df)
+            anc = np.where(np.isnan(anc), q[:, 4], anc)
+            q = q + (self.w_ens * (anc - q[:, 4]))[:, None]
         return gate(q, df["daylight"].to_numpy() if self.kind == "solar" else None)
+
+    def fit_blend(self, df: pd.DataFrame, folds: int = 4) -> "QuantileForecaster":
+        """Choose the anchor (ens / mos) and weight from OUT-OF-FOLD predictions on the train split.
+
+        Folds are blocked by calendar month (month mod `folds`), so each fold's LightGBM median and
+        ridge MOS never saw the months they predict. This uses a whole year of data for a 2-parameter
+        choice; choosing on ~6 calibration weeks picked the wrong anchor for both Belgian series (BUILD_LOG).
+        """
+        if not self.blend:
+            self.anchor, self.w_ens = "ens", 0.0
+            return self
+        tr = self._rows(df[df["split"] == "train"]).copy()
+        fold = pd.to_datetime(tr["time"]).dt.month.to_numpy() % folds
+        q50, mos = np.full(len(tr), np.nan), np.full(len(tr), np.nan)
+        for k in range(folds):
+            fit, hold = tr[fold != k], fold == k
+            m = lgb.LGBMRegressor(objective="quantile", alpha=0.5, **PARAMS).fit(fit[self.cols], fit["y"])
+            q50[hold] = m.predict(tr.loc[hold, self.cols])
+            mos[hold] = np.clip(Ridge(alpha=1.0).fit(self._nwp(fit), fit["y"]).predict(self._nwp(tr[hold])), 0, 1)
+        y, ens = tr["y"].to_numpy(), tr["phys_mean"].to_numpy()
+        grid = np.round(np.arange(0.05, 1.0001, 0.05), 2)
+        best = (np.mean(np.abs(np.clip(q50, 0, 1) - y)), "ens", 0.0)
+        for anchor, a in (("ens", ens), ("mos", mos)):
+            ok = ~np.isnan(a)
+            for w in grid:
+                e = np.mean(np.abs(np.clip((1 - w) * q50[ok] + w * a[ok], 0, 1) - y[ok]))
+                if e < best[0]:
+                    best = (e, anchor, float(w))
+        _, self.anchor, self.w_ens = best
+        return self
 
     def tiers(self, df: pd.DataFrame, q: np.ndarray) -> np.ndarray:
         return T.assign(q[:, -1] - q[:, 0], df["phys_range"].to_numpy())
@@ -57,6 +112,7 @@ class QuantileForecaster:
         return float(np.quantile(scores, min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)))
 
     def calibrate(self, df: pd.DataFrame, alpha: float = 0.2) -> "QuantileForecaster":
+        self.fit_blend(df)                       # uses the train split only (out-of-fold)
         cal = self._rows(df[df["split"] == "calib"])
         q = self.raw(cal)
         y = cal["y"].to_numpy()

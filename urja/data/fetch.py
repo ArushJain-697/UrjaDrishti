@@ -36,10 +36,13 @@ def _get(url: str, params: dict, tries: int = 4) -> dict:
     raise RuntimeError(f"rate-limited too many times: {url}")
 
 
-def _frame(payload: dict) -> pd.DataFrame:
+def _frame(payload: dict, tz: str) -> pd.DataFrame:
+    """Payload is always requested in UTC, then converted. Asking Open-Meteo for Asia/Kolkata
+    shifts the data by a whole 5 h and labels it as +5:30, putting every row 30 min early
+    (found in v3 via the NASA cross-check; BUILD_LOG #13)."""
     h = payload["hourly"]
     df = pd.DataFrame(h)
-    df["time"] = pd.to_datetime(df["time"]).dt.tz_localize(C.TZ)
+    df["time"] = pd.to_datetime(df["time"]).dt.tz_localize("UTC").dt.tz_convert(tz)
     return df.set_index("time")
 
 
@@ -48,34 +51,38 @@ def fetch_truth(site: C.Site) -> pd.DataFrame:
     if path.exists():
         return pd.read_parquet(path)
     p = dict(latitude=site.lat, longitude=site.lon, start_date=C.PERIOD_START, end_date=C.PERIOD_END,
-             hourly=",".join(C.TRUTH_VARS), timezone=C.TZ, wind_speed_unit="ms", models="era5")
-    df = _frame(_get(ARCHIVE_URL, p))
+             hourly=",".join(C.TRUTH_VARS), timezone="UTC", wind_speed_unit="ms", models="era5")
+    df = _frame(_get(ARCHIVE_URL, p), site.tz)
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(path)
     return df
 
 
-def fetch_forecast(site: C.Site, model: str) -> pd.DataFrame:
-    """Day-ahead forecast for every hour, columns named <var> (suffix stripped)."""
-    path = C.RAW_DIR / f"fc_{site.plant_id}_{model}.parquet"
+def fetch_forecast(site: C.Site, model: str, day: int = 1) -> pd.DataFrame:
+    """Forecast from the run ~`day` x 24 h before each hour, columns named <var> (suffix stripped)."""
+    tag = "" if day == 1 else f"_d{day}"
+    path = C.RAW_DIR / f"fc_{site.plant_id}_{model}{tag}.parquet"
     if path.exists():
         return pd.read_parquet(path)
-    vars_ = ",".join(v + C.LEAD_SUFFIX for v in C.NWP_VARS)
+    suffix = f"_previous_day{day}"
+    vars_ = ",".join(v + suffix for v in C.NWP_VARS)
     p = dict(latitude=site.lat, longitude=site.lon, start_date=C.PERIOD_START, end_date=C.PERIOD_END,
-             hourly=vars_, timezone=C.TZ, wind_speed_unit="ms", models=model)
-    df = _frame(_get(PREVIOUS_RUNS_URL, p))
-    df.columns = [c.removesuffix(C.LEAD_SUFFIX) for c in df.columns]
+             hourly=vars_, timezone="UTC", wind_speed_unit="ms", models=model)
+    df = _frame(_get(PREVIOUS_RUNS_URL, p), site.tz)
+    df.columns = [c.removesuffix(suffix) for c in df.columns]
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(path)
     return df
 
 
-def fetch_all() -> None:
-    for s in C.SITES:
-        fetch_truth(s)
+def fetch_all(sites=C.SITES, truth: bool = True) -> None:
+    for s in sites:
+        if truth and s.truth == "physics":
+            fetch_truth(s)
         for m in C.NWP_MODELS:
-            fetch_forecast(s, m)
-            time.sleep(1)
+            for day in (1, 2):
+                fetch_forecast(s, m, day)
+                time.sleep(1)
 
 
 if __name__ == "__main__":

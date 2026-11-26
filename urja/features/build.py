@@ -1,8 +1,9 @@
 """L2: build the day-ahead table. One row = one plant-hour.
 
-LEAKAGE RULE (tested in tests/test_leakage.py): every feature is computed from the
-day-ahead NWP forecasts, solar geometry or the calendar. Nothing from the truth source
-(ERA5) may enter a feature column. Truth only produces the target `y` (generation / capacity).
+LEAKAGE RULE (tested in tests/test_invariants.py): every feature is computed from the forecasts
+available at filing time, solar geometry or the calendar. Nothing from the truth source (ERA5 or
+Elia's measurements) may enter a feature column. Truth only produces the target `y` (output / capacity).
+Site lat/lon are NOT features in v3, so the model can be applied to sites it has never seen.
 """
 from __future__ import annotations
 
@@ -10,23 +11,36 @@ import numpy as np
 import pandas as pd
 
 from urja import config as C
-from urja.data.fetch import fetch_forecast, fetch_truth
+from urja.data.elia import fetch_elia
+from urja.data.fetch import fetch_truth
+from urja.data.lead import filed_forecast
 from urja.physics.power import solar_geometry, to_mw
 
 TARGET = "y"
-META = ["time", "plant_id", "kind", "split", "actual_mw", TARGET, "daylight"]
+ELIA_COLS = ["elia_p10", "elia_p50", "elia_p90"]
+META = ["time", "plant_id", "kind", "split", "actual_mw", TARGET, "daylight", "capacity_mw"] + ELIA_COLS
+
+
+def _truth(site: C.Site, geom_for) -> tuple[pd.DatetimeIndex, pd.Series, pd.Series, pd.DataFrame | None]:
+    """(index, actual MW, capacity MW, Elia baseline as capacity fractions or None)."""
+    if site.truth == "elia":
+        e = fetch_elia(site)
+        e = e[e["capacity"] > 0]
+        base = e[["elia_p10", "elia_p50", "elia_p90"]].div(e["capacity"], axis=0)
+        return e.index, e["measured"].clip(lower=0), e["capacity"], base
+    t = fetch_truth(site)
+    return t.index, to_mw(t, site, geom_for(t.index)), pd.Series(site.ac_mw, index=t.index), None
 
 
 def _site_table(site: C.Site) -> pd.DataFrame:
-    truth = fetch_truth(site)
-    idx = truth.index
+    idx, actual, capacity, elia = _truth(site, lambda i: solar_geometry(i, site))
     geom = solar_geometry(idx, site)
     cap = site.ac_mw
     f = pd.DataFrame(index=idx)
 
     phys = []
     for m in C.NWP_MODELS:
-        fc = fetch_forecast(site, m).reindex(idx)
+        fc, run_day = filed_forecast(site, m, idx)
         tag = m.split("_")[0]
         p = to_mw(fc, site, geom) / cap
         driver = "shortwave_radiation" if site.kind == "solar" else "wind_speed_100m"
@@ -70,10 +84,13 @@ def _site_table(site: C.Site) -> pd.DataFrame:
     f["hour_sin"], f["hour_cos"] = np.sin(2 * np.pi * h / 24), np.cos(2 * np.pi * h / 24)
     f["doy_sin"], f["doy_cos"] = np.sin(2 * np.pi * d / 365.25), np.cos(2 * np.pi * d / 365.25)
     f["lat"], f["lon"] = site.lat, site.lon
+    f["lead_day"] = run_day                         # 1 or 2: known at filing time
 
-    actual = to_mw(truth, site, geom)
     f["actual_mw"] = actual.to_numpy()
-    f[TARGET] = f["actual_mw"] / cap
+    f["capacity_mw"] = capacity.to_numpy()
+    f[TARGET] = (actual / capacity).clip(0, 1).to_numpy()
+    for c in ELIA_COLS:
+        f[c] = elia[c].clip(0, 1).to_numpy() if elia is not None else np.nan
     f["daylight"] = (f["zenith"] < 90) if site.kind == "solar" else True
     f["plant_id"], f["kind"] = site.plant_id, site.kind
     f = f.reset_index().rename(columns={"index": "time"})
@@ -89,11 +106,11 @@ def assign_split(t: pd.Series) -> pd.Series:
     return pd.Series(np.select([test, val, calib], ["test", "val", "calib"], "train"), index=t.index)
 
 
-def build_table() -> pd.DataFrame:
-    path = C.ART_DIR / "table.parquet"
+def build_table(sites=C.SITES, name: str = "table") -> pd.DataFrame:
+    path = C.ART_DIR / f"{name}_{C.LEAD_MODE}.parquet"
     if path.exists():
         return pd.read_parquet(path)
-    df = pd.concat([_site_table(s) for s in C.SITES], ignore_index=True)
+    df = pd.concat([_site_table(s) for s in sites], ignore_index=True)
     df["split"] = assign_split(df["time"])
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(path)
@@ -101,5 +118,5 @@ def build_table() -> pd.DataFrame:
 
 
 def feature_columns(df: pd.DataFrame, drop: tuple[str, ...] = ()) -> list[str]:
-    cols = [c for c in df.columns if c not in META and c not in ("kind",)]
+    cols = [c for c in df.columns if c not in META and c not in ("kind", "lat", "lon")]
     return [c for c in cols if not any(c.startswith(p) for p in drop)]
