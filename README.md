@@ -2,7 +2,7 @@
 
 # UrjaDrishti ಊರ್ಜಾ ದೃಷ್ಟಿ
 
-**Day-ahead solar and wind forecasts that say how sure they are, hour by hour**
+Day-ahead solar and wind forecasts for Karnataka, with a calibrated range for every hour
 
 [Design decisions](docs/BIBLE.md) · [What's real and what's simulated](docs/HONESTY.md) · [Build log](docs/BUILD_LOG.md) · [Benchmark plan](docs/BENCHMARK_PLAN.md)
 
@@ -10,73 +10,67 @@
 
 ## Overview
 
-A solar or wind generator in Karnataka files the next day's hour-by-hour schedule with the load despatch centre
-every morning. If the plant then delivers much more or much less than it scheduled, it pays for the gap under CERC's
-deviation settlement rules. The forecast behind that schedule is usually a single number per hour, and it gives no
-hint of whether tomorrow afternoon is a safe bet or a monsoon coin-toss.
+Solar and wind plants in Karnataka file an hour-by-hour schedule for the next day with the load despatch centre by
+10:00 the day before. When a plant then delivers much more or much less than it scheduled, it pays for the gap under
+CERC's deviation settlement rules. Most schedules come from one forecast number per hour, which gives no hint of
+whether tomorrow afternoon is a safe bet or a monsoon coin-toss.
 
-UrjaDrishti forecasts the whole range instead. For every plant and every hour of the next day, it:
+UrjaDrishti forecasts a range for each hour instead, and flags the hours where that range is wide. At four Karnataka
+sites it was never trained on, its error was 6–9% lower than the best simple baseline, and its P10–P90 band covered
+79–80% of hours against an 80% target. On measured output from the Belgian grid, the grid operator's own forecast
+did better, with about 16% lower error.
 
-1. takes what three global weather models (ECMWF, GFS, ICON) had published by the filing deadline, 10:00 the day
-   before, and nothing published later;
-2. turns that weather into megawatts with physics: sun position, panel temperature, inverter limits and a turbine
-   power curve;
-3. learns how wrong that physics forecast tends to be, and predicts nine levels of output, from P10 to P90;
-4. calibrates the P10–P90 band separately for calm, uncertain and risky hours, so that it means what it says;
-5. marks each hour GREEN, AMBER or RED and files the median as the schedule. RED hours go to a dispatcher, and no
-   model decides what gets filed.
-
-Every number here is produced by a script and saved as JSON in [`results/`](results/). The held-out sites and periods were
-chosen and committed before the model changes they test ([`docs/V3_SEAL.md`](docs/V3_SEAL.md)), and each was scored
-once. Results that went against us stay in.
+Every number in this README is produced by a script and saved as JSON in [`results/`](results/). The held-out sites
+and periods were chosen and committed before the model changes they test ([`docs/V3_SEAL.md`](docs/V3_SEAL.md)), and
+each was scored once.
 
 ## What it does
 
-| Capability | Description |
-|---|---|
-| Real forecast inputs | Archived day-ahead runs of ECMWF IFS, GFS and ICON, as available at the 10:00 filing deadline (24–48 h ahead) |
-| Physics first | pvlib (sun position, irradiance transposition, cell temperature, inverter clipping) and a turbine power curve |
-| Full distribution | LightGBM predicts 9 quantiles per plant-hour, shifted toward a no-ML anchor by a weight chosen out-of-fold |
-| Calibrated bands | Conformalized quantile regression, calibrated separately for each confidence tier |
-| Confidence tiers | GREEN, AMBER or RED per hour, from signals known when the forecast is made |
-| Fixed-rule schedule | Schedule = P50; a dispatcher reviews RED hours before filing |
-| Two independent truths | Solar is scored against ERA5 reanalysis and against NASA POWER satellite irradiance |
-| Measured-output check | The same method on Belgian grid data, against measured output and the operator's own forecast |
-| Small and fast | Trees compiled to native code (~75× faster) and a 30 KB distilled neural net, benchmarked on a CPU |
+For each plant and each hour of the next day, UrjaDrishti:
 
-## Why it works (the method, in one breath)
+1. takes the forecasts that ECMWF, GFS and ICON had published by the 10:00 deadline, 24–48 hours ahead, and nothing
+   published later;
+2. turns that weather into megawatts, with pvlib for solar and a turbine power curve for wind;
+3. predicts nine quantiles of output, P10 to P90, with LightGBM;
+4. calibrates the P10–P90 band separately for GREEN, AMBER and RED hours;
+5. files the median as the schedule and sends the RED hours to a dispatcher.
 
-Seven choices, each with a measured result behind it:
+The same code runs on Belgian grid data as a check against measured output. The models have also been made smaller
+and faster and benchmarked on a laptop CPU.
 
-1. **Physics first, learning second.** The same physics turns both the truth and the forecasts into megawatts, so
-   the model only has to learn the forecast's error. At all four sites it never saw, it beats the best no-ML
-   baseline, by 6–9%. ([Layer 1](#layer-1-weather-to-megawatts))
-2. **Only what existed at the deadline.** Every input was published by 10:00 the day before, and a test enforces it.
-   That honesty about timing costs accuracy: solar error rises from 4.96% to 5.36% and wind from 4.37% to 4.57%.
-   ([Layer 2](#layer-2-only-what-existed-at-the-deadline))
-3. **Three weather models, none trusted alone.** Their disagreement feeds the tiers, and the forecast is pulled toward
-   a no-ML anchor by a weight chosen out-of-fold. Two simpler ways of choosing that weight failed first.
-   ([Layer 3](#layer-3-the-quantile-model))
-4. **A band that holds where it matters.** An 80% band calibrated once for all hours is too narrow on exactly the
-   risky hours. We call that the Flat-Band Trap. Calibrating each tier separately raises coverage in RED hours by
-   9–12 points, and on unseen sites the band covers 79–80% of hours. RED hours are 19–33% of all hours but hold
-   67–76% of the energy that missed the schedule by more than ±10%. ([Layer 4](#layer-4-tiers-and-per-tier-calibration))
-5. **The model never files the schedule.** The schedule is a fixed rule (P50), and a person reviews RED hours.
-   ([Layer 5](#layer-5-the-schedule))
-6. **Checked against reality twice.** Scored against NASA POWER satellite irradiance instead of ERA5, the model still
-   beats the average of the weather models by 3–10%. Lining the two truths up also exposed a 30-minute timestamp bug
-   before anything was scored. On measured output from the Belgian grid, the grid operator's own forecast is the
-   opponent. ([Results](#results))
-7. **Small and fast on a laptop CPU.** Compiled to native code, the trees produce a plant-day 74× (solar) and
-   77× (wind) faster with the same accuracy. A 30 KB distilled network matches its teacher on solar (CRPS 0.0506 vs
-   0.0514). These numbers are from an Apple M4; the Raspberry Pi 5 benchmark hasn't been run yet.
-   ([CPU benchmarks](#cpu-benchmarks-and-optimisation))
+## Why it works
+
+The physics does most of the work. The truth and the forecasts go through the same pvlib and power-curve models, so
+LightGBM only has to learn how the weather forecast tends to be wrong at a given hour and season, not how a solar
+plant behaves.
+
+The inputs are limited to what a scheduler could actually have had. Each hour uses the newest weather-model run that
+was started and published by 10:00 the previous day, and a test fails if a later run slips in. This costs some
+accuracy: on the 2025–26 development year, solar error went from 4.96% to 5.36% and wind error from 4.37% to 4.57%,
+compared with using the forecast from about a day earlier.
+
+The three weather models are combined rather than trusted one at a time. How much they disagree is one of the signals
+that decides an hour's tier, and the forecast is pulled toward either their average or a linear correction of them
+(MOS), by a weight chosen from out-of-fold error over the training year. Two simpler ways of choosing that weight
+failed first; [Layer 3](#layer-3-the-quantile-model) has the details.
+
+The band is calibrated separately for each tier. Calibrated once for all hours, an 80% band gets its coverage right on
+average but covers too little of the risky hours, which is where deviation charges come from. We call this the
+Flat-Band Trap. In the development years, RED hours were 19–33% of all hours but held 67–76% of the energy that missed
+the schedule by more than ±10%, and calibrating each tier on its own raised coverage in those hours by 9–12 points.
+
+The schedule is a fixed rule: the median forecast, clipped to the plant's capacity, with RED hours flagged for a
+person. No model decides what gets filed.
+
+The results were checked against a second source of truth. Scored against NASA POWER satellite irradiance instead of
+ERA5, the model still beat the average of the weather models by 3–10% at both solar sites. Comparing the two sources
+also exposed a 30-minute timestamp bug, which was fixed before any held-out data was scored.
 
 <details>
 <summary>Prior work and citations</summary>
 
-- Correcting weather-model output with regression is Model Output Statistics (Glahn & Lowry, 1972). Our linear MOS
-  baseline is exactly that, and it's the baseline to beat.
+- Correcting weather-model output with regression is Model Output Statistics (Glahn & Lowry, 1972). The linear MOS
+  baseline here is exactly that, and it's the one to beat.
 - The band calibration is conformalized quantile regression (Romano, Patterson & Candès, 2019), done per group as
   Mondrian conformal prediction (Vovk, Gammerman & Shafer, 2005), with the groups matched to the operator's decision.
 - The small network is trained by knowledge distillation (Hinton, Vinyals & Dean, 2015) from out-of-fold teacher
@@ -85,10 +79,6 @@ Seven choices, each with a measured result behind it:
 - Deviation settlement: CERC (Deviation Settlement Mechanism and Related Matters) Regulations, 2024.
 
 </details>
-
-**Where it loses.** On measured Belgian output, the grid operator's own day-ahead forecast has about 16% lower error
-than ours on both series. Ours uses only three free global weather models at a single grid point. It still beats
-the linear MOS baseline on both.
 
 ## How it works
 
@@ -151,8 +141,7 @@ $d$ at 10:00 on $D-1$, we use the run from $N^*$ days earlier:
 $$N^* = \min\{\,N : \lfloor t - 24N\,\text{h} \rfloor_{6\text{h}} + 6\,\text{h} \le d\,\}$$
 
 In India that means the day-1 run for 00:30–04:30 and the day-2 run for every hour from 05:30 on. A property test
-checks the rule on 200 random days. Compared with simply using the forecast from about a day earlier, this raises the
-error by about 5–8% on development data. The 6-hour publication delay is an assumption ([build log](docs/BUILD_LOG.md)).
+checks the rule on 200 random days. The 6-hour publication delay is an assumption ([build log](docs/BUILD_LOG.md)).
 
 ### Layer 3: the quantile model
 
@@ -241,9 +230,9 @@ Measured output from the Belgian grid operator Elia, Nov 2025 – Oct 2026, agai
 The baseline in each row is the best of the no-ML baselines we computed, picked by code as the one with the lowest
 error: the average of the three weather models, each model on its own, or a linear correction of them (MOS).
 
-The tiers are where most of the value is. RED hours are 19–33% of all hours but hold 67–76% of the energy that missed
-the schedule by more than ±10%, and calibrating each tier separately raises coverage in those hours by 9–12 points.
-Wind in the 2025 monsoon still falls short of 80% (75%).
+Elia's forecast beats ours on both Belgian series. Ours uses three free global weather models at a single grid point,
+and it still beats linear MOS on both. Per-tier calibration left wind short of 80% coverage in RED hours during the
+2025 monsoon (75%).
 
 ### CPU benchmarks and optimisation
 
@@ -318,9 +307,11 @@ Thread scaling (ONNX fp32, batches of 10 000): 1 thread 5.0 M rows/s, 2 threads 
 | 2048 | 4,282,368 | 16.67 ms | 9.30 ms | 1.79× | 9.47 ms | 3.90 ms |
 <!-- bench:end -->
 
-The biggest speed-up came from the runtime, not from quantisation. Compiled to native code, the same trees produce a
-plant-day about 75× faster than through LightGBM's Python API, with identical outputs. On this CPU, int8 only pays off
-once layers reach about 1,000 units, so fp32 is the right choice for a 30 KB model.
+Most of the speed-up came from compiling the trees to native code: they produce a plant-day about 75× faster than
+through LightGBM's Python API, with identical outputs. On solar, a 30 KB network trained to copy the trees scored CRPS
+0.0506 against their 0.0514; on wind, distillation made every width worse, so the deployed network is a plain one.
+Quantisation mattered less. On this CPU, int8 only pays off once layers reach about 1,000 units, so fp32 is the right
+choice for a 30 KB model.
 
 The benchmark also caught a numerics bug. Converting the wind network to fp16 silently broke it (CRPS 0.049 → 0.507):
 a constant input feature had a standard deviation of about 1e-6, and the normalisation overflowed in fp16. Standard
@@ -392,7 +383,7 @@ python -m pytest -q               # 11 tests, including property tests with gene
 
 ## Documentation
 
-- [`docs/BIBLE.md`](docs/BIBLE.md): design, the trap, positioning, the demo script and likely questions
+- [`docs/BIBLE.md`](docs/BIBLE.md): design, the trap, positioning and likely questions
 - [`docs/HONESTY.md`](docs/HONESTY.md): what each component really is: real, simulated or assumed
 - [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md): what went wrong and how it was found
 - [`docs/V3_SEAL.md`](docs/V3_SEAL.md): the held-out tests, written down before the code
@@ -400,16 +391,16 @@ python -m pytest -q               # 11 tests, including property tests with gene
 
 ## Known limitations
 
-- **Karnataka plant output is simulated.** Plant-level SCADA data isn't public, so "actual" output is ERA5 weather
-  run through the same physics. The forecast error the model learns is real; plant behaviour (soiling, outages,
+- Karnataka plant output is simulated. Plant-level SCADA data isn't public, so "actual" output is ERA5 weather run
+  through the same physics. The forecast error the model learns is real, but plant behaviour (soiling, outages,
   curtailment, real turbine curves) is not. The Belgian check uses measured output, though Elia's solar values are
   themselves upscaled from sampled installations.
-- **Capacities are modelled 100 MW blocks** at real locations, not the real plants' nameplate.
-- **One weather grid point stands in for each Belgian series**, a whole province or offshore zone.
-- **The unseen sites share years and weather with the training sites.** They test transfer across places, not across
+- Capacities are modelled 100 MW blocks at real locations, not the real plants' nameplate.
+- One weather grid point stands in for each Belgian series, which covers a whole province or offshore zone.
+- The unseen sites share years and weather with the training sites, so they test transfer across places, not across
   time. A later period, from November 2026, is sealed for that.
-- **The deviation cost is a proxy:** energy outside a ±10% band. The real CERC settlement uses capacity-based bands
-  that changed on 1 April 2026.
-- **The run publication delay is assumed** to be 6 hours after a run starts; the real delay varies by model.
-- **CPU numbers are from one Apple M4 laptop on one thread.** Energy isn't measured, and the Raspberry Pi 5 numbers
-  need `scripts/bench_pi.sh` run on the board.
+- The deviation cost is a proxy: energy outside a ±10% band. The real CERC settlement uses capacity-based bands that
+  changed on 1 April 2026.
+- The run publication delay is assumed to be 6 hours after a run starts. The real delay varies by model.
+- CPU numbers are from one Apple M4 laptop on one thread. Energy isn't measured, and the Raspberry Pi 5 numbers need
+  `scripts/bench_pi.sh` run on the board.
