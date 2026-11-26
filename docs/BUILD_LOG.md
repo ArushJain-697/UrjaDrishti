@@ -51,3 +51,17 @@ What actually happened, including what broke. Newest last.
     go back to conformal calibration only.
 16. **Site lat/lon removed from features** so the model can be applied to sites it never saw. lead_day
     (1 or 2) added: it is known at filing time.
+
+# CPU benchmark and optimisation
+
+17. **fp16 broke the wind MLP silently.** ONNX fp16 conversion of the wind student gave CRPS 0.507 (fp32: 0.049).
+    A constant feature (the wind "ceiling") had std ≈ 1e-6 in the normalisation layer; in fp16 the tiny rounding
+    differences between x and the mean were divided by it and overflowed. Standard deviations are now floored at 1e-2
+    (`urja/models/mlp.py`). fp16 is now within 0.002 of fp32 on both technologies.
+18. **lleaves needs llvmlite < 0.45** (`PassManagerBuilder` was removed). Pinned in requirements.txt. treelite's C
+    backend (tl2cgen) was added as a second compiler; both give outputs identical to LightGBM.
+19. **Distillation helps solar, hurts wind.** Same teacher recipe (out-of-fold LightGBM quantiles, L1 to the teacher,
+    weight 1.0, not tuned). Solar students beat their plain versions at every width; wind students lost at every
+    width. Kept as a per-technology result rather than forcing one recipe.
+20. **Two harness bugs fixed before publishing:** the deployed-student rule only looked at distilled models, and the
+    ExecuTorch int8 calibration loop ran zero batches when the calibration set equalled one batch.
