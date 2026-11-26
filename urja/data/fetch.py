@@ -39,7 +39,7 @@ def _get(url: str, params: dict, tries: int = 4) -> dict:
 def _frame(payload: dict, tz: str) -> pd.DataFrame:
     """Payload is always requested in UTC, then converted. Asking Open-Meteo for Asia/Kolkata
     shifts the data by a whole 5 h and labels it as +5:30, putting every row 30 min early
-    (found in v3 via the NASA cross-check; BUILD_LOG #11)."""
+    (found in v3 via the NASA cross-check; BUILD_LOG #13)."""
     h = payload["hourly"]
     df = pd.DataFrame(h)
     df["time"] = pd.to_datetime(df["time"]).dt.tz_localize("UTC").dt.tz_convert(tz)
